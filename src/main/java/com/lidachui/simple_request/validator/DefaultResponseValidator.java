@@ -1,7 +1,5 @@
 package com.lidachui.simple_request.validator;
 
-import org.springframework.stereotype.Component;
-
 /**
  * DefaultResponseValidator
  *

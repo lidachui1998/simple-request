@@ -1,11 +1,5 @@
 package com.lidachui.simple_request.core;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
-import java.util.HashMap;
-import java.util.Map;
-
 import com.lidachui.simple_request.annotation.*;
 import com.lidachui.simple_request.constants.RequestClientType;
 import com.lidachui.simple_request.handler.HttpClientHandler;
@@ -14,7 +8,11 @@ import com.lidachui.simple_request.validator.ValidationResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpMethod;
-import org.springframework.stereotype.Component;
+
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.*;
 
 /**
  * RestClientProxyFactory
@@ -32,7 +30,7 @@ public class RestClientProxyFactory {
      * 创建指定接口的 REST 客户端代理。
      *
      * @param clientInterface 客户端接口类
-     * @param <T> 客户端接口类型
+     * @param <T>             客户端接口类型
      * @return 客户端接口的代理实例
      * @throws IllegalArgumentException 如果接口未被 @RestClient 注解
      */
@@ -62,7 +60,7 @@ public class RestClientProxyFactory {
         return (T)
                 Proxy.newProxyInstance(
                         clientInterface.getClassLoader(),
-                        new Class[] {clientInterface},
+                        new Class[]{clientInterface},
                         (proxy, method, args) -> {
                             RestRequest restRequest = method.getAnnotation(RestRequest.class);
                             if (restRequest != null) {
@@ -81,11 +79,11 @@ public class RestClientProxyFactory {
                                 HttpClientHandler httpClientHandler = applicationContext.getBean(beanName, HttpClientHandler.class);
                                 // 发送请求并获取响应
                                 Object response = httpClientHandler.sendRequest(
-                                    fullUrl,
-                                    httpMethod,
-                                    body,
-                                    headerMap,
-                                    method.getReturnType());
+                                        fullUrl,
+                                        httpMethod,
+                                        body,
+                                        headerMap,
+                                        method.getReturnType());
 
                                 // 校验响应
                                 ValidationResult validationResult = responseValidator.validate(response);
@@ -103,9 +101,9 @@ public class RestClientProxyFactory {
      * 构建完整的 URL。
      *
      * @param baseUrl 基础 URL
-     * @param path 请求路径
-     * @param method 方法对象
-     * @param args 方法参数
+     * @param path    请求路径
+     * @param method  方法对象
+     * @param args    方法参数
      * @return 完整的 URL
      */
     private String buildFullUrl(String baseUrl, String path, Method method, Object[] args) {
@@ -116,8 +114,8 @@ public class RestClientProxyFactory {
      * 构建查询参数的 Map。
      *
      * @param queryParams 查询参数数组
-     * @param method 方法对象
-     * @param args 方法参数
+     * @param method      方法对象
+     * @param args        方法参数
      * @return 查询参数的 Map
      */
     private Map<String, String> buildQueryMap(String[] queryParams, Method method, Object[] args) {
@@ -129,9 +127,9 @@ public class RestClientProxyFactory {
     /**
      * 替换路径中的变量。
      *
-     * @param path 请求路径
+     * @param path   请求路径
      * @param method 方法对象
-     * @param args 方法参数
+     * @param args   方法参数
      * @return 替换后的路径
      */
     private String replacePathVariables(String path, Method method, Object[] args) {
@@ -151,7 +149,7 @@ public class RestClientProxyFactory {
      * 提取方法参数中的查询参数。
      *
      * @param method 方法对象
-     * @param args 方法参数
+     * @param args   方法参数
      * @return 查询参数的 Map
      */
     private Map<String, String> extractMethodParams(Method method, Object[] args) {
@@ -172,8 +170,8 @@ public class RestClientProxyFactory {
      * 解析请求头。
      *
      * @param headers 请求头数组
-     * @param method 方法对象
-     * @param args 方法参数
+     * @param method  方法对象
+     * @param args    方法参数
      * @return 请求头的 Map
      */
     private Map<String, String> parseHeaders(String[] headers, Method method, Object[] args) {
@@ -224,7 +222,7 @@ public class RestClientProxyFactory {
     /**
      * 构建带查询参数的 URL。
      *
-     * @param url 基础 URL
+     * @param url         基础 URL
      * @param queryParams 查询参数的 Map
      * @return 带查询参数的完整 URL
      */
@@ -243,7 +241,7 @@ public class RestClientProxyFactory {
      * 提取方法参数中的请求体。
      *
      * @param method 方法对象
-     * @param args 方法参数
+     * @param args   方法参数
      * @return 请求体对象
      */
     private Object extractBodyParam(Method method, Object[] args) {
