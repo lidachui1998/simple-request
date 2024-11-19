@@ -1,0 +1,47 @@
+package com.lidachui.simple_request.annotation;
+
+import com.lidachui.simple_request.validator.DefaultResponseValidator;
+import com.lidachui.simple_request.constants.RequestClientType;
+import com.lidachui.simple_request.validator.ResponseValidator;
+
+import java.lang.annotation.*;
+
+/**
+ * RestClient (若baseUrl和propertyKey 同时存在，默认先取propertyKey)
+ *
+ * @author: lihuijie
+ * @date: 2024/11/18 21:49
+ * @version: 1.0
+ */
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface RestClient {
+    /**
+     * 基础 URL，支持直接设置
+     *
+     * @return {@code String }
+     */
+    String baseUrl() default "";
+
+    /**
+     * 指定从配置文件中获取的 key
+     *
+     * @return {@code String }
+     */
+    String propertyKey() default "";
+
+    /**
+     * 客户端类型
+     *
+     * @return {@code RequestClientType }
+     */
+    RequestClientType clientType() default RequestClientType.REST_TEMPLATE;
+
+    /**
+     * 响应验证器
+     *
+     * @return {@code Class<? extends ResponseValidator> }
+     */
+    Class<? extends ResponseValidator> responseValidator() default DefaultResponseValidator.class;
+}
