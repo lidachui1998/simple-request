@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Compiled class file
 *.class
 
@@ -63,4 +62,3 @@ build/
 ### Mac OS ###
 .DS_Store
 .idea
->>>>>>> master
