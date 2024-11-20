@@ -1,4 +1,5 @@
 package com.lidachui.simpleRequest.annotation;
+
 import com.lidachui.simpleRequest.core.RestClientRegistrar;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -10,6 +11,7 @@ import org.springframework.context.annotation.Import;
 
 /**
  * EnableRestClients
+ *
  * @author: lihuijie
  * @date: 2024/11/19 9:58
  * @version: 1.0
@@ -20,6 +22,5 @@ import org.springframework.context.annotation.Import;
 @Import(RestClientRegistrar.class)
 public @interface EnableRestClients {
 
-  String[] basePackages() default {};
-
+    String basePackage();
 }

@@ -47,8 +47,8 @@ public class RestClientRegistrar implements BeanFactoryPostProcessor, Applicatio
                     AnnotationUtils.findAnnotation(configBean.getClass(), EnableRestClients.class);
             if (enableRestClients != null) {
                 // 获取注解中的 basePackages 属性
-                String[] basePackages = enableRestClients.basePackages();
-                defaultBasePackage = basePackages[0];
+                String basePackage = enableRestClients.basePackage();
+                defaultBasePackage = basePackage;
                 break;
             }
         }
