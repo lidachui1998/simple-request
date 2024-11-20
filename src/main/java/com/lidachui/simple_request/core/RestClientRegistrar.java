@@ -10,6 +10,7 @@ import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
+import org.springframework.beans.factory.support.DefaultBeanNameGenerator;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -77,7 +78,9 @@ public class RestClientRegistrar implements BeanFactoryPostProcessor, Applicatio
                             AbstractBeanDefinition beanDefinition = builder.getBeanDefinition();
                             beanDefinition.setBeanClass(clazz);
                             beanDefinition.setInstanceSupplier(() -> proxyInstance);
-                            String beanName = AnnotationBeanNameGenerator.INSTANCE.generateBeanName(beanDefinition, registry);
+                            DefaultBeanNameGenerator defaultBeanNameGenerator = new DefaultBeanNameGenerator();
+                            String beanName = defaultBeanNameGenerator.generateBeanName(beanDefinition,
+                                registry);
 
                             // 使用类的全限定名作为 Bean 名称
                             registry.registerBeanDefinition(beanName, beanDefinition);

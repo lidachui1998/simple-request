@@ -6,6 +6,8 @@ import com.lidachui.simple_request.handler.HttpClientHandler;
 import com.lidachui.simple_request.validator.ResponseValidator;
 import com.lidachui.simple_request.validator.ValidationResult;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cglib.proxy.Enhancer;
+import org.springframework.cglib.proxy.MethodInterceptor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpMethod;
 
@@ -39,8 +41,9 @@ public class RestClientProxyFactory {
         RestClient restClient = clientInterface.getAnnotation(RestClient.class);
         if (restClient == null) {
             throw new IllegalArgumentException(
-                    clientInterface.getName() + " is not annotated with @RestClient");
+                clientInterface.getName() + " is not annotated with @RestClient");
         }
+
         String baseUrl;
         String propertyKey = restClient.propertyKey();
         if (propertyKey != null && !propertyKey.isEmpty()) {
@@ -57,46 +60,46 @@ public class RestClientProxyFactory {
         // 获取自定义的校验器
         Class<? extends ResponseValidator> validatorClass = restClient.responseValidator();
         ResponseValidator responseValidator = applicationContext.getBean(validatorClass);
-        return (T)
-                Proxy.newProxyInstance(
-                        clientInterface.getClassLoader(),
-                        new Class[]{clientInterface},
-                        (proxy, method, args) -> {
-                            RestRequest restRequest = method.getAnnotation(RestRequest.class);
-                            if (restRequest != null) {
-                                String url =
-                                        buildFullUrl(baseUrl, restRequest.path(), method, args);
-                                Map<String, String> headerMap =
-                                        parseHeaders(restRequest.headers(), method, args);
-                                Map<String, String> queryMap =
-                                        buildQueryMap(restRequest.queryParams(), method, args);
 
-                                String fullUrl = buildUrlWithQueryParams(url, queryMap);
-                                HttpMethod httpMethod = restRequest.method();
-                                Object body = extractBodyParam(method, args);
-                                RequestClientType requestClientType = restClient.clientType();
-                                String beanName = requestClientType.getBeanName();
-                                HttpClientHandler httpClientHandler = applicationContext.getBean(beanName, HttpClientHandler.class);
-                                // 发送请求并获取响应
-                                Object response = httpClientHandler.sendRequest(
-                                        fullUrl,
-                                        httpMethod,
-                                        body,
-                                        headerMap,
-                                        method.getReturnType());
+        // 使用 CGLIB 创建代理对象
+        Enhancer enhancer = new Enhancer();
+        enhancer.setSuperclass(clientInterface); // 指定代理的父类
+        enhancer.setCallback((MethodInterceptor) (obj, method, args, proxy) -> {
+            RestRequest restRequest = method.getAnnotation(RestRequest.class);
+            if (restRequest != null) {
+                String url = buildFullUrl(baseUrl, restRequest.path(), method, args);
+                Map<String, String> headerMap = parseHeaders(restRequest.headers(), method, args);
+                Map<String, String> queryMap = buildQueryMap(restRequest.queryParams(), method, args);
 
-                                // 校验响应
-                                ValidationResult validationResult = responseValidator.validate(response);
-                                if (!validationResult.isValid()) {
-                                    // 调用用户自定义的校验失败处理方法
-                                    responseValidator.onFailure(validationResult.getErrorMessage());
-                                }
-                                return response;
-                            }
-                            return null;
-                        });
+                String fullUrl = buildUrlWithQueryParams(url, queryMap);
+                HttpMethod httpMethod = restRequest.method();
+                Object body = extractBodyParam(method, args);
+                RequestClientType requestClientType = restClient.clientType();
+                String beanName = requestClientType.getBeanName();
+                HttpClientHandler httpClientHandler = applicationContext.getBean(beanName, HttpClientHandler.class);
+
+                // 发送请求并获取响应
+                Object response = httpClientHandler.sendRequest(
+                    fullUrl,
+                    httpMethod,
+                    body,
+                    headerMap,
+                    method.getReturnType());
+
+                // 校验响应
+                ValidationResult validationResult = responseValidator.validate(response);
+                if (!validationResult.isValid()) {
+                    // 调用用户自定义的校验失败处理方法
+                    responseValidator.onFailure(validationResult.getErrorMessage());
+                }
+                return response;
+            }
+            return proxy.invokeSuper(obj, args);
+        });
+
+        // 创建代理对象
+        return (T) enhancer.create();
     }
-
     /**
      * 构建完整的 URL。
      *

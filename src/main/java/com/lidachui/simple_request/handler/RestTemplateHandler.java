@@ -16,7 +16,6 @@ import org.springframework.web.client.RestTemplate;
  * @date: 2024/11/19 15:45
  * @version: 1.0
  */
-@Component("restTemplateHandler")
 public class RestTemplateHandler extends AbstractHttpClientHandler {
 
   @Resource
