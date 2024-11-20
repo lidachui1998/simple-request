@@ -2,6 +2,7 @@ package com.lidachui.simpleRequest.handler;
 
 import java.util.Map;
 import javax.annotation.Resource;
+import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -17,7 +18,7 @@ import org.springframework.web.client.RestTemplate;
  */
 public class RestTemplateHandler extends AbstractHttpClientHandler {
 
-    @Resource private RestTemplate restTemplate;
+    @Resource private ApplicationContext applicationContext;
 
     @Override
     public <T> T executeRequest(
@@ -26,6 +27,7 @@ public class RestTemplateHandler extends AbstractHttpClientHandler {
             Object body,
             Map<String, String> headers,
             Class<T> responseType) {
+        RestTemplate restTemplate = applicationContext.getBean(RestTemplate.class);
         if (restTemplate == null) {
             restTemplate = new RestTemplate();
         }

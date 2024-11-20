@@ -1,8 +1,8 @@
 package com.lidachui.simpleRequest.autoconfigure;
 
-import com.lidachui.simpleRequest.core.RestClientProxyFactory;
 import com.lidachui.simpleRequest.handler.RestTemplateHandler;
 import com.lidachui.simpleRequest.validator.DefaultResponseValidator;
+import com.lidachui.simpleRequest.core.RestClientProxyFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
