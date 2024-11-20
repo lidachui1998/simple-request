@@ -1,14 +1,17 @@
 package com.lidachui.simpleRequest.util;
 
+import org.reflections.Reflections;
+import org.reflections.scanners.Scanners;
+import org.reflections.util.ConfigurationBuilder;
+
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.List;
+import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.stream.Collectors;
 
 /**
  * 类用于扫描指定包中的类，支持注解扫描或基于自定义过滤条件扫描类。
@@ -25,11 +28,13 @@ public class ClassScanner {
      * @param packageName 包名
      * @param annotation 要查找的注解类
      * @return 带有指定注解的类列表
-     * @throws Exception 可能抛出的异常
      */
-    public static List<Class<?>> getClassesWithAnnotation(
-            String packageName, Class<? extends Annotation> annotation) throws Exception {
-        return getClassesWithFilter(packageName, clazz -> clazz.isAnnotationPresent(annotation));
+    public static List<Class<?>> getClassesWithAnnotation(String packageName, Class<? extends Annotation> annotation) {
+        Reflections reflections = new Reflections(new ConfigurationBuilder()
+                .forPackages(packageName)
+                .addScanners(Scanners.TypesAnnotated)); // Scanners.TypesAnnotated 用于扫描类上的注解
+        Set<Class<?>> annotatedClasses = reflections.getTypesAnnotatedWith(annotation);
+        return annotatedClasses.stream().collect(Collectors.toList());
     }
 
     /**
@@ -38,72 +43,13 @@ public class ClassScanner {
      * @param packageName 包名
      * @param filter 过滤器接口，用于定义过滤条件
      * @return 符合条件的类列表
-     * @throws Exception 可能抛出的异常
      */
-    public static List<Class<?>> getClassesWithFilter(String packageName, ClassFilter filter)
-            throws Exception {
-        List<Class<?>> filteredClasses = new ArrayList<>();
-        String path = packageName.replace('.', '/');
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        Enumeration<URL> resources = classLoader.getResources(path);
-
-        while (resources.hasMoreElements()) {
-            URL resource = resources.nextElement();
-            if ("file".equals(resource.getProtocol())) {
-                File directory = new File(resource.getFile());
-                if (directory.exists()) {
-                    findClassesInDirectory(directory, packageName, filter, filteredClasses);
-                }
-            } else if ("jar".equals(resource.getProtocol())) {
-                findClassesInJar(resource.getPath(), packageName, filter, filteredClasses);
-            }
-        }
-        return filteredClasses;
-    }
-
-    private static void findClassesInDirectory(
-            File directory, String packageName, ClassFilter filter, List<Class<?>> filteredClasses)
-            throws ClassNotFoundException {
-        File[] files = directory.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    findClassesInDirectory(
-                            file, packageName + "." + file.getName(), filter, filteredClasses);
-                } else if (file.getName().endsWith(".class")) {
-                    String className =
-                            packageName
-                                    + '.'
-                                    + file.getName().substring(0, file.getName().length() - 6);
-                    Class<?> clazz = Class.forName(className);
-                    if (filter.matches(clazz)) {
-                        filteredClasses.add(clazz);
-                    }
-                }
-            }
-        }
-    }
-
-    private static void findClassesInJar(
-            String jarPath, String packageName, ClassFilter filter, List<Class<?>> filteredClasses)
-            throws IOException, ClassNotFoundException {
-        String packagePath = packageName.replace('.', '/');
-        try (JarFile jarFile = new JarFile(jarPath.substring(0, jarPath.indexOf("!")))) {
-            Enumeration<JarEntry> entries = jarFile.entries();
-            while (entries.hasMoreElements()) {
-                JarEntry entry = entries.nextElement();
-                if (entry.getName().startsWith(packagePath) && entry.getName().endsWith(".class")) {
-                    String className =
-                            entry.getName()
-                                    .replace('/', '.')
-                                    .substring(0, entry.getName().length() - 6);
-                    Class<?> clazz = Class.forName(className);
-                    if (filter.matches(clazz)) {
-                        filteredClasses.add(clazz);
-                    }
-                }
-            }
-        }
+    public static List<Class<?>> getClassesWithFilter(String packageName, ClassFilter filter) {
+        Reflections reflections = new Reflections(new ConfigurationBuilder()
+                .forPackages(packageName)
+                .addScanners(Scanners.SubTypes)); // Scanners.SubTypes 用于扫描子类或接口实现类
+        Set<Class<?>> allClasses = reflections.getSubTypesOf(Object.class); // 获取所有类
+        return allClasses.stream().filter(filter::matches).collect(Collectors.toList());
     }
 
     /** ClassFilter 接口用于定义类过滤条件。 */

@@ -44,4 +44,11 @@ public @interface RestClient {
      * @return {@code Class<? extends ResponseValidator> }
      */
     Class<? extends ResponseValidator> responseValidator() default DefaultResponseValidator.class;
+
+    /**
+     * 名称
+     *
+     * @return 一串
+     */
+    String name() default "";
 }

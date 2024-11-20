@@ -22,5 +22,5 @@ import org.springframework.context.annotation.Import;
 @Import(RestClientRegistrar.class)
 public @interface EnableRestClients {
 
-    String basePackage();
+    String[] basePackages() default {};
 }
