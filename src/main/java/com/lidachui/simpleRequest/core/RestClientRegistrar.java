@@ -1,10 +1,9 @@
-package com.lidachui.simple_request.core;
+package com.lidachui.simpleRequest.core;
 
-
-import com.lidachui.simple_request.annotation.EnableRestClients;
-import com.lidachui.simple_request.annotation.RestClient;
-import com.lidachui.simple_request.autoconfigure.RestRequestConfig;
-import com.lidachui.simple_request.util.ClassScanner;
+import com.lidachui.simpleRequest.annotation.EnableRestClients;
+import com.lidachui.simpleRequest.annotation.RestClient;
+import com.lidachui.simpleRequest.autoconfigure.RestRequestConfig;
+import com.lidachui.simpleRequest.util.ClassScanner;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
@@ -14,7 +13,6 @@ import org.springframework.beans.factory.support.DefaultBeanNameGenerator;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.annotation.AnnotationBeanNameGenerator;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.annotation.AnnotationUtils;
@@ -22,7 +20,7 @@ import org.springframework.core.annotation.AnnotationUtils;
 import java.util.*;
 
 /**
- * RestClientScannerConfig
+ * RestClientRegistrar
  *
  * @author: lihuijie
  * @date: 2024/11/19 10:13
@@ -72,21 +70,23 @@ public class RestClientRegistrar implements BeanFactoryPostProcessor, Applicatio
 
                         // 将代理对象注册为 Spring 的 Bean
                         if (beanFactory instanceof DefaultListableBeanFactory) {
-                            DefaultListableBeanFactory registry = (DefaultListableBeanFactory) beanFactory;
+                            DefaultListableBeanFactory registry =
+                                    (DefaultListableBeanFactory) beanFactory;
 
-                            BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition();
+                            BeanDefinitionBuilder builder =
+                                    BeanDefinitionBuilder.genericBeanDefinition();
                             AbstractBeanDefinition beanDefinition = builder.getBeanDefinition();
                             beanDefinition.setBeanClass(clazz);
                             beanDefinition.setInstanceSupplier(() -> proxyInstance);
-                            DefaultBeanNameGenerator defaultBeanNameGenerator = new DefaultBeanNameGenerator();
-                            String beanName = defaultBeanNameGenerator.generateBeanName(beanDefinition,
-                                registry);
+                            DefaultBeanNameGenerator defaultBeanNameGenerator =
+                                    new DefaultBeanNameGenerator();
+                            String beanName =
+                                    defaultBeanNameGenerator.generateBeanName(
+                                            beanDefinition, registry);
 
                             // 使用类的全限定名作为 Bean 名称
                             registry.registerBeanDefinition(beanName, beanDefinition);
                         }
-
-
                     }
                 }
             } catch (Exception e) {

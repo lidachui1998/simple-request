@@ -1,8 +1,8 @@
-package com.lidachui.simple_request.autoconfigure;
+package com.lidachui.simpleRequest.autoconfigure;
 
-import com.lidachui.simple_request.core.RestClientProxyFactory;
-import com.lidachui.simple_request.handler.RestTemplateHandler;
-import com.lidachui.simple_request.validator.DefaultResponseValidator;
+import com.lidachui.simpleRequest.core.RestClientProxyFactory;
+import com.lidachui.simpleRequest.handler.RestTemplateHandler;
+import com.lidachui.simpleRequest.validator.DefaultResponseValidator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -17,17 +17,17 @@ import org.springframework.context.annotation.Configuration;
 public class RestRequestConfig {
 
     @Bean
-    public RestClientProxyFactory restClientProxyFactory(){
+    public RestClientProxyFactory restClientProxyFactory() {
         return new RestClientProxyFactory();
     }
 
     @Bean
-    public DefaultResponseValidator defaultResponseValidator(){
+    public DefaultResponseValidator defaultResponseValidator() {
         return new DefaultResponseValidator();
     }
 
     @Bean(name = "restTemplateHandler")
-    public RestTemplateHandler restTemplateHandler(){
+    public RestTemplateHandler restTemplateHandler() {
         return new RestTemplateHandler();
     }
 }

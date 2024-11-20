@@ -1,11 +1,11 @@
-package com.lidachui.simple_request.annotation;
+package com.lidachui.simpleRequest.annotation;
+import com.lidachui.simpleRequest.core.RestClientRegistrar;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import com.lidachui.simple_request.core.RestClientRegistrar;
 import org.springframework.context.annotation.Import;
 
 /**

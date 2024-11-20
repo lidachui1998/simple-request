@@ -1,4 +1,4 @@
-package com.lidachui.simple_request.validator;
+package com.lidachui.simpleRequest.validator;
 
 /**
  * DefaultResponseValidator

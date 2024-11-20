@@ -1,4 +1,4 @@
-package com.lidachui.simple_request.util;
+package com.lidachui.simpleRequest.util;
 
 import java.io.File;
 import java.io.IOException;

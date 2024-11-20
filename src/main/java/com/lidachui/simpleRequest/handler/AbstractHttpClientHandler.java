@@ -1,4 +1,4 @@
-package com.lidachui.simple_request.handler;
+package com.lidachui.simpleRequest.handler;
 
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;

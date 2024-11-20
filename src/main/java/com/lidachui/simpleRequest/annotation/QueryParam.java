@@ -1,4 +1,4 @@
-package com.lidachui.simple_request.annotation;
+package com.lidachui.simpleRequest.annotation;
 
 import java.lang.annotation.*;
 

@@ -1,8 +1,8 @@
-package com.lidachui.simple_request.annotation;
+package com.lidachui.simpleRequest.annotation;
 
-import com.lidachui.simple_request.validator.DefaultResponseValidator;
-import com.lidachui.simple_request.constants.RequestClientType;
-import com.lidachui.simple_request.validator.ResponseValidator;
+import com.lidachui.simpleRequest.constants.RequestClientType;
+import com.lidachui.simpleRequest.validator.DefaultResponseValidator;
+import com.lidachui.simpleRequest.validator.ResponseValidator;
 
 import java.lang.annotation.*;
 

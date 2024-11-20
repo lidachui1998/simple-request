@@ -1,4 +1,4 @@
-package com.lidachui.simple_request.annotation;
+package com.lidachui.simpleRequest.annotation;
 
 import org.springframework.http.HttpMethod;
 
