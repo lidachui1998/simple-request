@@ -1,5 +1,7 @@
 package com.lidachui.simpleRequest.validator;
 
+import com.lidachui.simpleRequest.resolver.Request;
+
 /**
  * ResponseValidator
  *
@@ -12,7 +14,7 @@ public interface ResponseValidator {
     ValidationResult validate(Object response);
 
     // 处理校验失败时的操作
-    default void onFailure(String errorMessage) {
+    default void onFailure(Request request, Object response, ValidationResult validationResult) {
         // 默认什么都不做，子类可以重写该方法实现自定义逻辑
     }
 }

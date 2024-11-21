@@ -19,7 +19,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.StringUtils;
 
-import java.lang.annotation.Annotation;
 import java.util.*;
 
 /**
@@ -35,7 +34,7 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
 
     private static final Logger logger = LoggerFactory.getLogger(RestClientRegistrar.class);
 
-    private List<String> basePackages = new ArrayList<>();
+    private final List<String> basePackages = new ArrayList<>();
     private RestClientProxyFactory restClientProxyFactory;
     private boolean supportsInstanceSupplier;
 
@@ -44,7 +43,8 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
         this.restClientProxyFactory = applicationContext.getBean(RestClientProxyFactory.class);
         this.restClientProxyFactory.setApplicationContext(applicationContext);
 
-        String[] configBeanNames = applicationContext.getBeanNamesForAnnotation(EnableRestClients.class);
+        String[] configBeanNames =
+                applicationContext.getBeanNamesForAnnotation(EnableRestClients.class);
         for (String beanName : configBeanNames) {
             Object configBean = applicationContext.getBean(beanName);
 
@@ -57,40 +57,50 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
         }
 
         // 检查是否支持 setInstanceSupplier 方法
-        supportsInstanceSupplier = Arrays.stream(AbstractBeanDefinition.class.getMethods())
-                .anyMatch(method -> method.getName().equals("setInstanceSupplier"));
+        supportsInstanceSupplier =
+                Arrays.stream(AbstractBeanDefinition.class.getMethods())
+                        .anyMatch(method -> method.getName().equals("setInstanceSupplier"));
         logger.info("Spring version supports setInstanceSupplier: {}", supportsInstanceSupplier);
     }
 
     @Override
-    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
-        basePackages.parallelStream().forEach(basePackage -> {
-            List<Class<?>> annotatedInterfaces = scanClassesWithAnnotation(basePackage, RestClient.class);
-            for (Class<?> clazz : annotatedInterfaces) {
-                if (clazz.isInterface()) {
-                    try {
-                        Object proxyInstance = restClientProxyFactory.create(clazz);
-                        registerBean(beanFactory, clazz, proxyInstance);
-                        logger.info("Registered RestClient proxy for: {}", clazz.getName());
-                    } catch (Exception e) {
-                        logger.error("Failed to register RestClient bean for: {}", clazz.getName(), e);
-                        throw new RuntimeException("Failed to register RestClient beans", e);
-                    }
-                }
-            }
-        });
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory)
+            throws BeansException {
+        basePackages.parallelStream()
+                .forEach(
+                        basePackage -> {
+                            List<Class<?>> annotatedInterfaces =
+                                    scanClassesWithAnnotation(basePackage);
+                            for (Class<?> clazz : annotatedInterfaces) {
+                                if (clazz.isInterface()) {
+                                    try {
+                                        Object proxyInstance = restClientProxyFactory.create(clazz);
+                                        registerBean(beanFactory, clazz, proxyInstance);
+                                        logger.info(
+                                                "Registered RestClient proxy for: {}",
+                                                clazz.getName());
+                                    } catch (Exception e) {
+                                        logger.error(
+                                                "Failed to register RestClient bean for: {}",
+                                                clazz.getName(),
+                                                e);
+                                        throw new RuntimeException(
+                                                "Failed to register RestClient beans", e);
+                                    }
+                                }
+                            }
+                        });
     }
 
     /**
      * 扫描带有注释类
      *
      * @param basePackage 基本包
-     * @param annotation  注释
      * @return 列表<class < ？>>
      */
-    private List<Class<?>> scanClassesWithAnnotation(String basePackage, Class<? extends Annotation> annotation) {
+    private List<Class<?>> scanClassesWithAnnotation(String basePackage) {
         try {
-            return ClassScanner.getClassesWithAnnotation(basePackage, annotation);
+            return ClassScanner.getClassesWithAnnotation(basePackage, RestClient.class);
         } catch (Exception e) {
             logger.error("Failed to scan package: {}", basePackage, e);
             return Collections.emptyList();
@@ -100,11 +110,12 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
     /**
      * 注册bean
      *
-     * @param beanFactory   豆厂
-     * @param clazz         clazz
+     * @param beanFactory 豆厂
+     * @param clazz clazz
      * @param proxyInstance 代理实例
      */
-    private void registerBean(ConfigurableListableBeanFactory beanFactory, Class<?> clazz, Object proxyInstance) {
+    private void registerBean(
+            ConfigurableListableBeanFactory beanFactory, Class<?> clazz, Object proxyInstance) {
         if (beanFactory instanceof DefaultListableBeanFactory) {
             DefaultListableBeanFactory registry = (DefaultListableBeanFactory) beanFactory;
 
@@ -153,4 +164,3 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
         return StringUtils.uncapitalize(simpleName);
     }
 }
-

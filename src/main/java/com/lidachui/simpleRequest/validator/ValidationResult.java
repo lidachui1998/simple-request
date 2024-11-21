@@ -8,8 +8,8 @@ package com.lidachui.simpleRequest.validator;
  * @version: 1.0
  */
 public class ValidationResult {
-    private boolean valid;
-    private String errorMessage;
+    private final boolean valid;
+    private final String errorMessage;
 
     public ValidationResult(boolean valid, String errorMessage) {
         this.valid = valid;

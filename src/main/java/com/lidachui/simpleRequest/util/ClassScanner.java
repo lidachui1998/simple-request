@@ -4,13 +4,8 @@ import org.reflections.Reflections;
 import org.reflections.scanners.Scanners;
 import org.reflections.util.ConfigurationBuilder;
 
-import java.io.File;
-import java.io.IOException;
 import java.lang.annotation.Annotation;
-import java.net.URL;
 import java.util.*;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 /**
@@ -37,29 +32,4 @@ public class ClassScanner {
         return annotatedClasses.stream().collect(Collectors.toList());
     }
 
-    /**
-     * 获取指定包中符合自定义过滤条件的所有类。
-     *
-     * @param packageName 包名
-     * @param filter 过滤器接口，用于定义过滤条件
-     * @return 符合条件的类列表
-     */
-    public static List<Class<?>> getClassesWithFilter(String packageName, ClassFilter filter) {
-        Reflections reflections = new Reflections(new ConfigurationBuilder()
-                .forPackages(packageName)
-                .addScanners(Scanners.SubTypes)); // Scanners.SubTypes 用于扫描子类或接口实现类
-        Set<Class<?>> allClasses = reflections.getSubTypesOf(Object.class); // 获取所有类
-        return allClasses.stream().filter(filter::matches).collect(Collectors.toList());
-    }
-
-    /** ClassFilter 接口用于定义类过滤条件。 */
-    public interface ClassFilter {
-        /**
-         * 检查类是否符合条件。
-         *
-         * @param clazz 要检查的类
-         * @return 如果符合条件返回 true，否则返回 false
-         */
-        boolean matches(Class<?> clazz);
-    }
 }
