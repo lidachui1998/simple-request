@@ -285,4 +285,10 @@ public class CustomResponseValidator implements ResponseValidator {
 
 ---
 
-如果需要进一步完善或定制，请随时告诉我！
+
+
+## 待完善功能
+
+- [ ] 自定义序列化
+- [ ] 更多的客户端类型（OkHttp等）
+- [ ] 支持身份验证等功能

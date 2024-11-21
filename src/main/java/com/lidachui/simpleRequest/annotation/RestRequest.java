@@ -37,9 +37,16 @@ public @interface RestRequest {
     String[] headers() default {};
 
     /**
-     * 查询参数参数 Query 参数，格式如 "key=value"
+     * 查询参数 Query 参数，格式如 "key=value"
      *
      * @return {@code String[] }
      */
     String[] queryParams() default {};
+
+    /**
+     * 超时时间
+     *
+     * @return long
+     */
+    long timeout() default 5000;
 }

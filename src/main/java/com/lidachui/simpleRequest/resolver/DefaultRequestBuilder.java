@@ -66,16 +66,50 @@ public class DefaultRequestBuilder implements RequestBuilder {
         path = replacePathVariables(path, method, args);
         fullUrlBuilder.append(path);
 
-        // 构建查询参数
-        Map<String, String> queryParams = extractParams(method, args, QueryParam.class);
-        if (!queryParams.isEmpty()) {
+        // 从注解中提取 Query 参数
+        Map<String, String> annotationQueryParams = parseQueryParamsFromAnnotation(method);
+
+        // 从方法参数中提取 Query 参数
+        Map<String, String> methodQueryParams = extractParams(method, args, QueryParam.class);
+
+        // 替换注解中 Query 参数的占位符
+        annotationQueryParams.replaceAll((key, value) -> {
+            if (value.contains("{")) { // 如果存在占位符
+                for (Map.Entry<String, String> entry : methodQueryParams.entrySet()) {
+                    value = value.replace("{" + entry.getKey() + "}", entry.getValue());
+                }
+            }
+            return value;
+        });
+
+        // 合并 Query 参数，方法参数优先
+        methodQueryParams.forEach(annotationQueryParams::putIfAbsent);
+
+        // 构建完整 URL 的 Query 部分
+        if (!annotationQueryParams.isEmpty()) {
             fullUrlBuilder.append("?")
-                    .append(queryParams.entrySet().stream()
+                    .append(annotationQueryParams.entrySet().stream()
                             .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
                             .collect(Collectors.joining("&")));
         }
 
         return fullUrlBuilder.toString();
+    }
+
+    private Map<String, String> parseQueryParamsFromAnnotation(Method method) {
+        RestRequest restRequest = method.getAnnotation(RestRequest.class);
+        Map<String, String> queryParams = new HashMap<>();
+
+        if (restRequest != null) {
+            String[] queryParamArray = restRequest.queryParams();
+            for (String queryParam : queryParamArray) {
+                String[] split = queryParam.split("=", 2);
+                if (split.length == 2) {
+                    queryParams.put(split[0].trim(), split[1].trim());
+                }
+            }
+        }
+        return queryParams;
     }
 
     private String replacePathVariables(String path, Method method, Object[] args) {
