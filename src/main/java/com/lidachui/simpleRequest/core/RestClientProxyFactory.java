@@ -59,13 +59,7 @@ public class RestClientProxyFactory {
                                                 beanName, HttpClientHandler.class);
 
                                 // 发送请求并获取响应
-                                Object response =
-                                        httpClientHandler.sendRequest(
-                                                request.getUrl(),
-                                                request.getMethod(),
-                                                request.getBody(),
-                                                request.getHeaders(),
-                                                method.getReturnType());
+                                Object response = httpClientHandler.sendRequest(request);
 
                                 // 校验响应
                                 validateResponse(responseValidator, request, response);

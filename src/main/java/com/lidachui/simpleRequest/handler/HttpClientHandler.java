@@ -1,6 +1,8 @@
 package com.lidachui.simpleRequest.handler;
 
 import java.util.Map;
+
+import com.lidachui.simpleRequest.resolver.Request;
 import org.springframework.http.HttpMethod;
 
 /**
@@ -15,17 +17,9 @@ public interface HttpClientHandler {
     /**
      * 发送请求
      *
-     * @param url url
-     * @param method 方法
-     * @param body 请求体
-     * @param headers 请求头
-     * @param responseType 响应类型
+     * @param request 请求
      * @return {@code T }
      */
     <T> T sendRequest(
-            String url,
-            HttpMethod method,
-            Object body,
-            Map<String, String> headers,
-            Class<T> responseType);
+            Request request);
 }

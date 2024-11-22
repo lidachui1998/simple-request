@@ -1,6 +1,7 @@
 package com.lidachui.simpleRequest.resolver;
 
 import java.util.Map;
+
 import lombok.Data;
 import org.springframework.http.HttpMethod;
 
@@ -12,7 +13,7 @@ import org.springframework.http.HttpMethod;
  * @version: 1.0
  */
 @Data
-public class Request {
+public class Request<T> {
     /** url */
     private String url;
 
@@ -27,4 +28,7 @@ public class Request {
 
     /** 请求体 */
     private Object body;
+
+    /** 响应类型 */
+    private Class<T> responseType;
 }

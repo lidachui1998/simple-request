@@ -1,6 +1,8 @@
 package com.lidachui.simpleRequest.handler;
 
 import java.util.Map;
+
+import com.lidachui.simpleRequest.resolver.Request;
 import javax.annotation.Resource;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpEntity;
@@ -21,21 +23,19 @@ public class RestTemplateHandler extends AbstractHttpClientHandler {
     @Resource private ApplicationContext applicationContext;
 
     @Override
-    public <T> T executeRequest(
-            String url,
-            HttpMethod method,
-            Object body,
-            Map<String, String> headers,
-            Class<T> responseType) {
+    public <T> T executeRequest(Request request) {
         RestTemplate restTemplate = applicationContext.getBean(RestTemplate.class);
         if (restTemplate == null) {
             restTemplate = new RestTemplate();
         }
         HttpHeaders httpHeaders = new HttpHeaders();
+        Map<String, String> headers = request.getHeaders();
         headers.forEach(httpHeaders::set); // 添加 Headers
-
+        Object body = request.getBody();
         HttpEntity<Object> entity = new HttpEntity<>(body, httpHeaders);
-        ResponseEntity<T> response = restTemplate.exchange(url, method, entity, responseType);
+        ResponseEntity<T> response =
+                restTemplate.exchange(
+                        request.getUrl(), request.getMethod(), entity, request.getResponseType());
         return response.getBody();
     }
 
