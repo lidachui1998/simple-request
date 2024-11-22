@@ -4,14 +4,17 @@ import com.lidachui.simpleRequest.annotation.Auth;
 import com.lidachui.simpleRequest.annotation.RestClient;
 import com.lidachui.simpleRequest.annotation.RestRequest;
 import com.lidachui.simpleRequest.auth.AuthProvider;
+import com.lidachui.simpleRequest.handler.HttpClientHandler;
 import com.lidachui.simpleRequest.resolver.DefaultRequestBuilder;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.RequestBuilder;
 import com.lidachui.simpleRequest.validator.ResponseValidator;
 import com.lidachui.simpleRequest.validator.ValidationResult;
-import com.lidachui.simpleRequest.handler.HttpClientHandler;
+
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.cglib.proxy.Enhancer;
 import org.springframework.cglib.proxy.MethodInterceptor;
 import org.springframework.context.ApplicationContext;
@@ -92,9 +95,22 @@ public class RestClientProxyFactory {
         if (auth == null) {
             auth = clientInterface.getAnnotation(Auth.class); // 尝试从接口级别获取
         }
+        AuthProvider authProvider;
         if (auth != null) {
-            AuthProvider authProvider = applicationContext.getBean(auth.provider());
-            authProvider.apply(request); // 应用身份验证
+            try {
+                authProvider = applicationContext.getBean(auth.provider());
+            } catch (NoSuchBeanDefinitionException e) {
+                log.error(
+                        "No bean of type AuthProvider found for auth annotation in class "
+                                + clientInterface.getName(),
+                        e);
+                try {
+                    authProvider = auth.provider().getDeclaredConstructor().newInstance();
+                } catch (Exception ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+            authProvider.apply(request);
         }
     }
 
