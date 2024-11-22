@@ -3,7 +3,9 @@ package com.lidachui.simpleRequest.core;
 import com.lidachui.simpleRequest.annotation.Auth;
 import com.lidachui.simpleRequest.annotation.RestClient;
 import com.lidachui.simpleRequest.annotation.RestRequest;
+import com.lidachui.simpleRequest.annotation.Retry;
 import com.lidachui.simpleRequest.auth.AuthProvider;
+import com.lidachui.simpleRequest.constants.BackoffStrategy;
 import com.lidachui.simpleRequest.handler.HttpClientHandler;
 import com.lidachui.simpleRequest.resolver.DefaultRequestBuilder;
 import com.lidachui.simpleRequest.resolver.Request;
@@ -69,6 +71,12 @@ public class RestClientProxyFactory {
                                         applicationContext.getBean(
                                                 beanName, HttpClientHandler.class);
 
+                                // 检查是否需要重试
+                                Retry retry = method.getAnnotation(Retry.class);
+                                if (retry != null) {
+                                    return retryRequest(
+                                            httpClientHandler, request, responseValidator, retry);
+                                }
                                 // 发送请求并获取响应
                                 Object response = httpClientHandler.sendRequest(request);
 
@@ -81,6 +89,63 @@ public class RestClientProxyFactory {
 
         // 创建代理对象
         return (T) enhancer.create();
+    }
+
+    // 重试请求的逻辑
+    private Object retryRequest(
+            HttpClientHandler httpClientHandler,
+            Request request,
+            ResponseValidator responseValidator,
+            Retry retry) {
+        int attempts = 0;
+        long delay = retry.delay();
+        Class<? extends Throwable>[] retryFor = retry.retryFor();
+        BackoffStrategy backoffStrategy = retry.backoff();
+
+        while (attempts < retry.maxRetries()) {
+            try {
+                // 发送请求并获取响应
+                Object response = httpClientHandler.sendRequest(request);
+
+                // 校验响应
+                validateResponse(responseValidator, request, response);
+                return response;
+            } catch (Throwable e) {
+                // 如果异常是指定的重试异常之一，则重试
+                if (shouldRetry(e, retryFor)) {
+                    attempts++;
+                    if (attempts >= retry.maxRetries()) {
+                        throw e; // 达到最大重试次数，抛出异常
+                    }
+
+                    // 根据退避策略调整延迟
+                    if (backoffStrategy == BackoffStrategy.EXPONENTIAL) {
+                        delay *= 2; // 指数退避
+                    }
+
+                    try {
+                        Thread.sleep(delay); // 延迟重试
+                    } catch (InterruptedException interruptedException) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(interruptedException);
+                    }
+                } else {
+                    throw e; // 如果异常不在重试列表中，直接抛出
+                }
+            }
+        }
+
+        throw new IllegalStateException("Max retries reached for request.");
+    }
+
+    // 判断是否应该重试
+    private boolean shouldRetry(Throwable throwable, Class<? extends Throwable>[] retryFor) {
+        for (Class<? extends Throwable> retryException : retryFor) {
+            if (retryException.isInstance(throwable)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
