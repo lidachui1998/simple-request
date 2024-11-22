@@ -17,7 +17,7 @@ Simple Request 是一个轻量级的 Java REST 客户端框架，旨在简化基
 在 Maven 项目中添加以下依赖：
 ```xml
 <dependency>
-    <groupId>com.greencloud</groupId>
+    <groupId>com.example</groupId>
     <artifactId>simple-request</artifactId>
     <version>1.0.0</version>
 </dependency>
@@ -156,6 +156,15 @@ User getUserWithAuth(@HeaderParam("token") String token);
 ```java
 @Auth(provider = ApiKeyAuthProvider.class) // 覆盖全局验证
     SecureData getSecureData();
+```
+
+### @Retry
+
+重试机制，支持请求失败根据异常重试机制
+
+```java
+@Retry(maxRetries = 5, delay = 1000,retryFor = {RuntimeException.class, NullPointerException.class})
+Map getLocation();
 ```
 
 ------
@@ -300,4 +309,3 @@ public class CustomResponseValidator implements ResponseValidator {
 
 - [ ] 自定义序列化
 - [ ] 更多的客户端类型（OkHttp等）
-- [ ] 支持身份验证等功能
