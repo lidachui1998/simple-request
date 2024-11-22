@@ -91,7 +91,15 @@ public class RestClientProxyFactory {
         return (T) enhancer.create();
     }
 
-    // 重试请求的逻辑
+    /**
+     * 重试请求的逻辑
+     *
+     * @param httpClientHandler http客户端处理程序
+     * @param request 请求
+     * @param responseValidator 响应验证器
+     * @param retry 重试
+     * @return 对象
+     */
     private Object retryRequest(
             HttpClientHandler httpClientHandler,
             Request request,
@@ -138,7 +146,13 @@ public class RestClientProxyFactory {
         throw new IllegalStateException("Max retries reached for request.");
     }
 
-    // 判断是否应该重试
+    /**
+     * 判断是否应该重试
+     *
+     * @param throwable 可投掷
+     * @param retryFor 重试
+     * @return boolean
+     */
     private boolean shouldRetry(Throwable throwable, Class<? extends Throwable>[] retryFor) {
         for (Class<? extends Throwable> retryException : retryFor) {
             if (retryException.isInstance(throwable)) {
