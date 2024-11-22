@@ -74,7 +74,8 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
                             for (Class<?> clazz : annotatedInterfaces) {
                                 if (clazz.isInterface()) {
                                     try {
-                                        Object proxyInstance = restClientProxyFactory.create(clazz);
+                                        Object proxyInstance =
+                                                restClientProxyFactory.createProxy(clazz);
                                         registerBean(beanFactory, clazz, proxyInstance);
                                         logger.info(
                                                 "Registered RestClient proxy for: {}",

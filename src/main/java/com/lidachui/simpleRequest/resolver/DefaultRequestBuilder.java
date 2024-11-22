@@ -54,7 +54,6 @@ public class DefaultRequestBuilder implements RequestBuilder {
         // 提取 Body 参数
         Object body = extractBodyParam(method, args);
         request.setBody(body);
-
         request.setResponseType(method.getReturnType());
         log.debug("Built request: {}", request);
         return request;

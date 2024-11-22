@@ -1,7 +1,9 @@
 package com.lidachui.simpleRequest.core;
 
+import com.lidachui.simpleRequest.annotation.Auth;
 import com.lidachui.simpleRequest.annotation.RestClient;
 import com.lidachui.simpleRequest.annotation.RestRequest;
+import com.lidachui.simpleRequest.auth.AuthProvider;
 import com.lidachui.simpleRequest.resolver.DefaultRequestBuilder;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.RequestBuilder;
@@ -13,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cglib.proxy.Enhancer;
 import org.springframework.cglib.proxy.MethodInterceptor;
 import org.springframework.context.ApplicationContext;
+
+import java.lang.reflect.Method;
 
 /**
  * RestClientProxyFactory
@@ -53,6 +57,10 @@ public class RestClientProxyFactory {
                                 Request request =
                                         requestBuilder.buildRequest(
                                                 method, args, baseUrl, restRequest);
+
+                                // 获取验证提供器
+                                addAuth(clientInterface, method, request);
+
                                 String beanName = restClient.clientType().getBeanName();
                                 HttpClientHandler httpClientHandler =
                                         applicationContext.getBean(
@@ -70,6 +78,24 @@ public class RestClientProxyFactory {
 
         // 创建代理对象
         return (T) enhancer.create();
+    }
+
+    /**
+     * 添加身份验证
+     *
+     * @param clientInterface 客户端界面
+     * @param method 方法
+     * @param request 请求
+     */
+    private <T> void addAuth(Class<T> clientInterface, Method method, Request request) {
+        Auth auth = method.getAnnotation(Auth.class);
+        if (auth == null) {
+            auth = clientInterface.getAnnotation(Auth.class); // 尝试从接口级别获取
+        }
+        if (auth != null) {
+            AuthProvider authProvider = applicationContext.getBean(auth.provider());
+            authProvider.apply(request); // 应用身份验证
+        }
     }
 
     /**
