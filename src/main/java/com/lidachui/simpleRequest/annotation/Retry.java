@@ -1,8 +1,6 @@
 package com.lidachui.simpleRequest.annotation;
 
 import com.lidachui.simpleRequest.constants.BackoffStrategy;
-import com.lidachui.simpleRequest.validator.DefaultResponseValidator;
-import com.lidachui.simpleRequest.validator.ResponseValidator;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

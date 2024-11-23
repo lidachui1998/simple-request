@@ -6,6 +6,8 @@ import com.lidachui.simpleRequest.constants.BackoffStrategy;
 import com.lidachui.simpleRequest.handler.AbstractHttpClientHandler;
 import com.lidachui.simpleRequest.handler.HttpClientHandler;
 import com.lidachui.simpleRequest.resolver.*;
+import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
+import com.lidachui.simpleRequest.util.ParamInfo;
 import com.lidachui.simpleRequest.validator.ResponseValidator;
 import com.lidachui.simpleRequest.validator.ValidationResult;
 
@@ -102,8 +104,6 @@ public class RestClientProxyFactory {
      * @param request 请求
      * @param responseValidator 响应验证器
      * @param retry 重试
-     * @param method
-     * @param args
      * @return 对象
      */
     private Object retryRequest(
@@ -172,24 +172,34 @@ public class RestClientProxyFactory {
 
     private static void returnHeaders(Method method, Object[] args, Response response) {
         Map<String, String> headers = response.getHeaders();
-        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
 
-        for (int i = 0; i < parameterAnnotations.length; i++) {
-            for (Annotation annotation : parameterAnnotations[i]) {
-                if (annotation instanceof ResponseHeader && args[i] instanceof Map) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> map = (Map<String, Object>) args[i];
+        Map<String, ParamInfo> responseHeaderParams =
+                AnnotationParamExtractor.extractParamsWithType(
+                        method,
+                        args,
+                        ResponseHeader.class,
+                        annotation -> ((ResponseHeader) annotation).name());
 
-                    // 获取 ResponseHeader 的 name 值
-                    String headerName = ((ResponseHeader) annotation).name();
+        if (!responseHeaderParams.isEmpty() && !headers.isEmpty()) {
+            Annotation[][] parameterAnnotations = method.getParameterAnnotations();
 
-                    if (headerName == null || headerName.trim().isEmpty()) {
-                        // 如果 name 为空，注入所有头部信息
-                        map.putAll(headers);
-                    } else {
-                        // 注入指定的头部信息
-                        if (headers.containsKey(headerName)) {
-                            map.put(headerName, headers.get(headerName));
+            for (int i = 0; i < parameterAnnotations.length; i++) {
+                for (Annotation annotation : parameterAnnotations[i]) {
+                    if (annotation instanceof ResponseHeader && args[i] instanceof Map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> map = (Map<String, Object>) args[i];
+
+                        // 获取 ResponseHeader 的 name 值
+                        String headerName = ((ResponseHeader) annotation).name();
+
+                        if (headerName == null || headerName.trim().isEmpty()) {
+                            // 如果 name 为空，注入所有头部信息
+                            map.putAll(headers);
+                        } else {
+                            // 注入指定的头部信息
+                            if (headers.containsKey(headerName)) {
+                                map.put(headerName, headers.get(headerName));
+                            }
                         }
                     }
                 }
@@ -225,8 +235,8 @@ public class RestClientProxyFactory {
         if (auth == null) {
             auth = clientInterface.getAnnotation(Auth.class); // 尝试从接口级别获取
         }
-        AuthProvider authProvider;
         if (auth != null) {
+            AuthProvider authProvider;
             try {
                 authProvider = applicationContext.getBean(auth.provider());
             } catch (NoSuchBeanDefinitionException e) {

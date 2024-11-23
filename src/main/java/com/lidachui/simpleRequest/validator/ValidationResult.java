@@ -1,5 +1,7 @@
 package com.lidachui.simpleRequest.validator;
 
+import lombok.Getter;
+
 /**
  * ValidationResult
  *
@@ -7,6 +9,7 @@ package com.lidachui.simpleRequest.validator;
  * @date: 2024/11/19 17:35
  * @version: 1.0
  */
+@Getter
 public class ValidationResult {
     private final boolean valid;
     private final String errorMessage;
@@ -16,11 +19,4 @@ public class ValidationResult {
         this.errorMessage = errorMessage;
     }
 
-    public boolean isValid() {
-        return valid;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
-    }
 }

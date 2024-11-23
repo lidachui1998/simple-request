@@ -1,18 +1,20 @@
 package com.lidachui.simpleRequest.handler;
 
-import java.util.*;
-
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
-import javax.annotation.Resource;
+
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.*;
+
+import javax.annotation.Resource;
 
 /**
  * RestTemplateHandler
@@ -49,11 +51,5 @@ public class RestTemplateHandler extends AbstractHttpClientHandler {
             log.error("Error occurred while retrieving RestTemplate bean: " + e.getMessage(), e);
             return new RestTemplate();
         }
-    }
-
-    @Override
-    void logRequest(String url, HttpMethod method, Object body, Map<String, String> headers) {
-        System.out.println("RestTemplateHandler logRequest");
-        super.logRequest(url, method, body, headers);
     }
 }

@@ -1,11 +1,12 @@
 package com.lidachui.simpleRequest.handler;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
 import com.lidachui.simpleRequest.serialize.JacksonSerializer;
 import com.lidachui.simpleRequest.serialize.Serializer;
+
 import kotlin.Pair;
+
 import okhttp3.*;
 
 import java.io.IOException;
@@ -48,17 +49,13 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
 
             // 构建请求体
             RequestBody requestBody;
-            try {
-                Map<String, String> headers = request.getHeaders();
-                // 根据 Content-Type 来决定请求体的构建方式
-                if ("application/x-www-form-urlencoded"
-                        .equalsIgnoreCase(headers.get("Content-Type"))) {
-                    requestBody = buildFormRequestBody(request.getBody());
-                } else {
-                    requestBody = buildRequestBody(request.getBody());
-                }
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
+            Map<String, String> headers = request.getHeaders();
+            // 根据 Content-Type 来决定请求体的构建方式
+            if ("application/x-www-form-urlencoded"
+                    .equalsIgnoreCase(headers.getOrDefault("Content-Type",""))) {
+                requestBody = buildFormRequestBody(request.getBody());
+            } else {
+                requestBody = buildRequestBody(request.getBody());
             }
 
             switch (request.getMethod()) {
@@ -87,8 +84,8 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
             okhttp3.Response response = client.newCall(requestBuilder.build()).execute();
             if (response.isSuccessful()) {
                 Map<String, String> headersMap = new HashMap<>();
-                Headers headers = response.headers();
-                for (Pair<? extends String, ? extends String> header : headers) {
+                Headers responseHeaders = response.headers();
+                for (Pair<? extends String, ? extends String> header : responseHeaders) {
                     String first = header.getFirst();
                     String second = header.getSecond();
                     headersMap.put(first, second);
@@ -103,8 +100,13 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
         }
     }
 
-    // 构建 JSON 请求体
-    private RequestBody buildRequestBody(Object body) throws JsonProcessingException {
+    /**
+     * 构建 JSON 请求体
+     *
+     * @param body 请求体
+     * @return 请求正文
+     */
+    private RequestBody buildRequestBody(Object body) {
         if (body == null) {
             return null;
         }
@@ -117,7 +119,12 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
         }
     }
 
-    // 构建表单请求体
+    /**
+     * 构建表单请求体
+     *
+     * @param body 请求体
+     * @return 请求正文
+     */
     private RequestBody buildFormRequestBody(Object body) {
         if (body == null) {
             return null;

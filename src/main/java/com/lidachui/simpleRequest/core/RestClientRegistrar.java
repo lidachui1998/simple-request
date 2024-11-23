@@ -4,6 +4,7 @@ import com.lidachui.simpleRequest.annotation.EnableRestClients;
 import com.lidachui.simpleRequest.annotation.RestClient;
 import com.lidachui.simpleRequest.autoconfigure.RestRequestConfig;
 import com.lidachui.simpleRequest.util.ClassScanner;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -64,7 +65,7 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
     }
 
     @Override
-    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory)
+    public void postProcessBeanFactory(@NotNull ConfigurableListableBeanFactory beanFactory)
             throws BeansException {
         basePackages.parallelStream()
                 .forEach(
@@ -74,8 +75,7 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
                             for (Class<?> clazz : annotatedInterfaces) {
                                 if (clazz.isInterface()) {
                                     try {
-                                        Object proxyInstance =
-                                                restClientProxyFactory.create(clazz);
+                                        Object proxyInstance = restClientProxyFactory.create(clazz);
                                         registerBean(beanFactory, clazz, proxyInstance);
                                         logger.info(
                                                 "Registered RestClient proxy for: {}",
