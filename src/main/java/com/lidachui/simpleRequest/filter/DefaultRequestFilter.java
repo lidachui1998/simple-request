@@ -33,4 +33,16 @@ public class DefaultRequestFilter extends AbstractRequestFilter {
     public void afterCompletion(Request request, Response response) {
         log.info("RequestFilter afterCompletion");
     }
+
+    /**
+     * 异常拦截（提供默认实现）
+     *
+     * @param request  请求
+     * @param response 响应
+     * @param e        异常
+     */
+    @Override
+    public void error(Request request, Response response, Exception e) {
+        super.error(request, response, e);
+    }
 }

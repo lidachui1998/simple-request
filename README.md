@@ -86,6 +86,67 @@ public class UserController {
 }
 ```
 
+## 请求拦截器
+
+参照如下，继承AbstractRequestFilter，注入Spring即可，可通过getRequestContext();拿到请求上下文
+
+```java
+@Component
+public class CustomRequestFilter extends AbstractRequestFilter {
+  @Override
+  public void preHandle(Request request) {
+    RequestContext requestContext = getRequestContext();
+    System.out.println("CustomRequestFilter preHandle");
+  }
+
+  @Override
+  public void afterCompletion(Request request, Response response) {
+    RequestContext requestContext = getRequestContext();
+    System.out.println("CustomRequestFilter afterCompletion");
+  }
+
+  @Override
+  public void error(Request request, Response response, Exception e) {
+    RequestContext requestContext = getRequestContext();
+    super.error(request, response, e);
+  }
+}@Slf4j
+public class DefaultRequestFilter extends AbstractRequestFilter {
+    /**
+     * 请求前拦截
+     *
+     * @param request 请求
+     */
+    @Override
+    public void preHandle(Request request) {
+        log.info("RequestFilter preHandle");
+    }
+
+    /**
+     * 请求后拦截
+     *
+     * @param request 请求
+     * @param response 响应
+     */
+    @Override
+    public void afterCompletion(Request request, Response response) {
+        log.info("RequestFilter afterCompletion");
+    }
+
+    /**
+     * 异常拦截（提供默认实现）
+     *
+     * @param request  请求
+     * @param response 响应
+     * @param e        异常
+     */
+    @Override
+    public void error(Request request, Response response, Exception e) {
+        super.error(request, response, e);
+    }
+}
+```
+
 ------
 
 ## **详细注解说明**
@@ -165,6 +226,15 @@ User getUserWithAuth(@HeaderParam("token") String token);
 ```java
 @Retry(maxRetries = 5, delay = 1000,retryFor = {RuntimeException.class, NullPointerException.class})
 Map getLocation();
+```
+
+### @ResponseHeader
+
+得到响应的头信息，只对Map有效
+
+```java
+@RestRequest(path = "/user/login", method = HttpMethod.POST})
+User login(@ResponseHeader("Authorization") Map<String,String> token);
 ```
 
 ------
