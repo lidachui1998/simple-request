@@ -2,7 +2,7 @@ package com.lidachui.simpleRequest.handler;
 
 import java.util.Map;
 
-import com.lidachui.simpleRequest.resolver.DefaultResponseBuilder;
+import com.lidachui.simpleRequest.resolver.OkHttpResponseBuilder;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
 import com.lidachui.simpleRequest.resolver.ResponseBuilder;
@@ -23,7 +23,7 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
 
     @Getter
     @Setter
-    private ResponseBuilder responseBuilder = new DefaultResponseBuilder();
+    private ResponseBuilder responseBuilder = new OkHttpResponseBuilder();
 
     /**
      * 发送请求

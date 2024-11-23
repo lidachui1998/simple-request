@@ -93,7 +93,8 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
                     String second = header.getSecond();
                     headersMap.put(first, second);
                 }
-                return new Response(response.body(), headersMap);
+                String responseBody = response.body() != null ? response.body().string() : "";
+                return new Response(responseBody, headersMap);
             } else {
                 throw new IOException("Request failed with status code: " + response.code());
             }
