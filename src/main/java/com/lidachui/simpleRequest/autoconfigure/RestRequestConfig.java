@@ -1,5 +1,6 @@
 package com.lidachui.simpleRequest.autoconfigure;
 
+import com.lidachui.simpleRequest.handler.OkHttpHandler;
 import com.lidachui.simpleRequest.handler.RestTemplateHandler;
 import com.lidachui.simpleRequest.validator.DefaultResponseValidator;
 import com.lidachui.simpleRequest.core.RestClientProxyFactory;
@@ -29,5 +30,10 @@ public class RestRequestConfig {
     @Bean(name = "restTemplateHandler")
     public RestTemplateHandler restTemplateHandler() {
         return new RestTemplateHandler();
+    }
+
+    @Bean(name = "okhttpClientHandler")
+    public OkHttpHandler okHttpHandler() {
+        return new OkHttpHandler();
     }
 }
