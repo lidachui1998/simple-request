@@ -9,6 +9,7 @@ import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
 import com.lidachui.simpleRequest.util.ParamInfo;
 
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.UnsupportedEncodingException;
 import java.lang.annotation.Annotation;
@@ -44,16 +45,7 @@ public class DefaultRequestBuilder implements RequestBuilder {
             Method method, Object[] args, String baseUrl, RestRequest restRequest) {
         Request request = new Request();
 
-        Map<Class<? extends Annotation>, Function<Annotation, String>> annotationTypeMap =
-                new HashMap<>();
-        annotationTypeMap.put(
-                PathVariable.class, annotation -> ((PathVariable) annotation).value());
-        annotationTypeMap.put(QueryParam.class, annotation -> ((QueryParam) annotation).value());
-        annotationTypeMap.put(HeaderParam.class, annotation -> ((HeaderParam) annotation).value());
-        annotationTypeMap.put(BodyParam.class, annotation -> "body"); // 默认键值
-
-        Map<Class<? extends Annotation>, Map<String, ParamInfo>> params =
-                AnnotationParamExtractor.extractParamsWithTypes(method, args, annotationTypeMap);
+        Map<Class<? extends Annotation>, Map<String, ParamInfo>> params = getParams(method, args);
 
         // 获取不同类型注解参数
         Map<String, ParamInfo> pathParams = params.get(PathVariable.class);
@@ -83,12 +75,26 @@ public class DefaultRequestBuilder implements RequestBuilder {
         return request;
     }
 
+    @NotNull
+    private static Map<Class<? extends Annotation>, Map<String, ParamInfo>> getParams(
+            Method method, Object[] args) {
+        Map<Class<? extends Annotation>, Function<Annotation, String>> annotationTypeMap =
+                new HashMap<>();
+        annotationTypeMap.put(
+                PathVariable.class, annotation -> ((PathVariable) annotation).value());
+        annotationTypeMap.put(QueryParam.class, annotation -> ((QueryParam) annotation).value());
+        annotationTypeMap.put(HeaderParam.class, annotation -> ((HeaderParam) annotation).value());
+        annotationTypeMap.put(BodyParam.class, annotation -> "body"); // 默认键值
+
+        return AnnotationParamExtractor.extractParamsWithTypes(method, args, annotationTypeMap);
+    }
+
     private String buildFullUrl(
             String baseUrl,
             String path,
             Method method,
             Map<String, ParamInfo> pathParams,
-            Map<String, ParamInfo> queryParams) {
+            Map<String, ParamInfo> methodQueryParams) {
         StringBuilder fullUrlBuilder = new StringBuilder(baseUrl);
 
         // 替换路径参数
@@ -98,8 +104,6 @@ public class DefaultRequestBuilder implements RequestBuilder {
         // 从注解中提取 Query 参数
         Map<String, String> annotationQueryParams = parseQueryParamsFromAnnotation(method);
 
-        // 从方法参数中提取 Query 参数
-        Map<String, ParamInfo> methodQueryParams = queryParams;
         Map<String, String> methodQueryParamsMap =
                 methodQueryParams.entrySet().stream()
                         .collect(
