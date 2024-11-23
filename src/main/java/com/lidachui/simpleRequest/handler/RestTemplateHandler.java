@@ -3,6 +3,7 @@ package com.lidachui.simpleRequest.handler;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
 
+import com.lidachui.simpleRequest.util.SpringUtil;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
@@ -26,8 +27,6 @@ import javax.annotation.Resource;
 @Slf4j
 public class RestTemplateHandler extends AbstractHttpClientHandler {
 
-    @Resource private ApplicationContext applicationContext;
-
     @Override
     public Response executeRequest(Request request) {
         RestTemplate restTemplate = getRestTemplate();
@@ -46,7 +45,7 @@ public class RestTemplateHandler extends AbstractHttpClientHandler {
 
     public RestTemplate getRestTemplate() {
         try {
-            return applicationContext.getBean(RestTemplate.class);
+            return SpringUtil.getBean(RestTemplate.class);
         } catch (NoSuchBeanDefinitionException e) {
             log.error("Error occurred while retrieving RestTemplate bean: " + e.getMessage(), e);
             return new RestTemplate();

@@ -1,15 +1,17 @@
 package com.lidachui.simpleRequest.handler;
 
-import java.util.Map;
+import com.lidachui.simpleRequest.filter.AbstractRequestFilter;
+import com.lidachui.simpleRequest.resolver.*;
+import com.lidachui.simpleRequest.util.RequestIdGenerator;
+import com.lidachui.simpleRequest.util.SpringUtil;
 
-import com.lidachui.simpleRequest.resolver.DefaultResponseBuilder;
-import com.lidachui.simpleRequest.resolver.Request;
-import com.lidachui.simpleRequest.resolver.Response;
-import com.lidachui.simpleRequest.resolver.ResponseBuilder;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpMethod;
+
+import org.springframework.util.CollectionUtils;
+
+import java.util.*;
 
 /**
  * AbstractHttpClientHandler
@@ -18,61 +20,96 @@ import org.springframework.http.HttpMethod;
  * @date: 2024/11/19 15:40
  * @version: 1.0
  */
+@Setter
+@Getter
 @Slf4j
 public abstract class AbstractHttpClientHandler implements HttpClientHandler {
 
-    @Getter
-    @Setter
     private ResponseBuilder responseBuilder = new DefaultResponseBuilder();
 
     /**
      * 发送请求
      *
      * @param request 请求
-     * @return {@code T }
+     * @return {@code Response}
      */
     @Override
-    public Response sendRequest(
-            Request request) {
-        // 请求前日志
-        logRequest(request.getUrl(), request.getMethod(), request.getBody(), request.getHeaders());
+    public Response sendRequest(Request request) {
+        RequestContext requestContext = new RequestContext();
+        // 记录请求上下文
+        requestContext.setRequestId(RequestIdGenerator.generate());
+        requestContext.setRequest(request);
+        // 调用所有 RequestFilter 的 preHandle
+        invokePreHandleFilters(request, requestContext);
+        Response response = null;
         try {
-            Response response = executeRequest(request);
-            // 请求成功后记录响应
-            logResponse(request.getUrl(), request.getMethod(), response);
+            response = executeRequest(request);
+            requestContext.setResponse(response);
+            // 调用所有 RequestFilter 的 afterCompletion
+            invokeAfterCompletionFilters(request, response, requestContext);
             return response;
         } catch (Exception e) {
-            // 请求失败记录异常
-            logError(request.getUrl(), request.getMethod(), e);
+            // 调用所有 RequestFilter 的 error
+            invokeErrorFilters(request, response, e, requestContext);
             throw e; // 重新抛出异常
         }
     }
 
     // 抽象方法，由子类实现具体的请求逻辑
-    protected abstract Response executeRequest(
-           Request request);
+    protected abstract Response executeRequest(Request request);
 
-    // 请求前日志记录
-    void logRequest(String url, HttpMethod method, Object body, Map<String, String> headers) {
-        log.info(
-                String.format(
-                        "HTTP Request:\nURL: %s\nMethod: %s\nBody: %s\nHeaders: %s",
-                        url, method, body, headers));
+    // 调用所有 preHandle
+    private void invokePreHandleFilters(Request request, RequestContext requestContext) {
+        List<AbstractRequestFilter> requestFilters = getRequestFilters();
+        for (AbstractRequestFilter filter : requestFilters) {
+            try {
+                filter.setRequestContext(requestContext);
+                filter.preHandle(request);
+            } catch (Exception e) {
+                log.warn("Error executing preHandle filter: {}", filter.getClass().getName(), e);
+            }
+        }
     }
 
-    // 响应日志记录
-    void logResponse(String url, HttpMethod method, Response response) {
-        log.info(
-                String.format(
-                        "HTTP Response:\nURL: %s\nMethod: %s\nResponse: %s",
-                        url, method, response));
+    // 调用所有 afterCompletion
+    private void invokeAfterCompletionFilters(
+            Request request, Response response, RequestContext requestContext) {
+        List<AbstractRequestFilter> requestFilters = getRequestFilters();
+        for (AbstractRequestFilter filter : requestFilters) {
+            try {
+                filter.setRequestContext(requestContext);
+                filter.afterCompletion(request, response);
+            } catch (Exception e) {
+                log.warn(
+                        "Error executing afterCompletion filter: {}",
+                        filter.getClass().getName(),
+                        e);
+            }
+        }
     }
 
-    // 异常日志记录
-    void logError(String url, HttpMethod method, Exception e) {
-        log.error(
-                String.format(
-                        "HTTP Error:\nURL: %s\nMethod: %s\nError: %s", url, method, e.getMessage()),
-                e);
+    // 调用所有 error
+    private void invokeErrorFilters(
+            Request request, Response response, Exception e, RequestContext requestContext) {
+        List<AbstractRequestFilter> requestFilters = getRequestFilters();
+        for (AbstractRequestFilter filter : requestFilters) {
+            try {
+                filter.setRequestContext(requestContext);
+                filter.error(request, response, e);
+            } catch (Exception ex) {
+                log.warn("Error executing error filter: {}", filter.getClass().getName(), ex);
+            }
+        }
+    }
+
+    private List<AbstractRequestFilter> getRequestFilters() {
+        List<AbstractRequestFilter> requestFilters = new ArrayList<>();
+        Map<String, AbstractRequestFilter> beans =
+                SpringUtil.getBeansOfType(AbstractRequestFilter.class);
+        Collection<AbstractRequestFilter> values = beans.values();
+        if (!CollectionUtils.isEmpty(values)) {
+            requestFilters.addAll(values);
+        }
+        return requestFilters;
     }
 }
