@@ -1,11 +1,9 @@
 package com.lidachui.simpleRequest.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.lidachui.simpleRequest.resolver.Request;
+import com.lidachui.simpleRequest.serialize.DefaultSerializer;
+import com.lidachui.simpleRequest.serialize.Serializer;
 
 import okhttp3.*;
 import okhttp3.OkHttpClient;
@@ -23,14 +21,11 @@ import java.util.*;
 public class OkHttpHandler extends AbstractHttpClientHandler {
 
     private final OkHttpClient client;
-    private final ObjectMapper objectMapper;
+
+    private final Serializer serializer = new DefaultSerializer();
 
     public OkHttpHandler() {
         this.client = new OkHttpClient();
-        this.objectMapper = new ObjectMapper();
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        objectMapper.registerModule(new JavaTimeModule());
     }
 
     @Override
@@ -95,7 +90,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
                     return (T) response.body().string();
                 }
                 return (T)
-                        objectMapper.readValue(response.body().string(), request.getResponseType());
+                        serializer.deserialize(response.body().string(), request.getResponseType());
             } else {
                 throw new IOException("Request failed with status code: " + response.code());
             }
@@ -114,8 +109,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
                     MediaType.parse("application/json; charset=utf-8"), (String) body);
         } else {
             return RequestBody.create(
-                    MediaType.parse("application/json; charset=utf-8"),
-                    objectMapper.writeValueAsString(body));
+                    MediaType.parse("application/json; charset=utf-8"), serializer.serialize(body));
         }
     }
 
