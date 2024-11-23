@@ -18,6 +18,50 @@ public class AnnotationParamExtractor {
     /**
      * 提取带有指定注解的参数及其值。
      *
+     * @param method             方法
+     * @param args               参数值数组
+     * @param annotationTypeMap  注解类型与提取键值函数的映射
+     * @return 参数键值对，键为注解的值或参数名，值为参数信息（包括类型和值）
+     */
+    public static Map<Class<? extends Annotation>, Map<String, ParamInfo>> extractParamsWithTypes(
+            Method method, Object[] args,
+            Map<Class<? extends Annotation>, Function<Annotation, String>> annotationTypeMap) {
+
+        Map<Class<? extends Annotation>, Map<String, ParamInfo>> resultMap = new HashMap<>();
+        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
+        String[] parameterNames = getParameterNames(method); // 获取参数名称
+
+        for (Class<? extends Annotation> annotationType : annotationTypeMap.keySet()) {
+            resultMap.put(annotationType, new HashMap<>());
+        }
+
+        for (int i = 0; i < parameterAnnotations.length; i++) {
+            for (Annotation annotation : parameterAnnotations[i]) {
+                for (Map.Entry<Class<? extends Annotation>, Function<Annotation, String>> entry :
+                        annotationTypeMap.entrySet()) {
+                    Class<? extends Annotation> annotationType = entry.getKey();
+                    Function<Annotation, String> keyExtractor = entry.getValue();
+
+                    if (annotationType.isInstance(annotation)) {
+                        // 如果注解值为空字符串，则使用参数名称作为键
+                        String key = keyExtractor.apply(annotation);
+                        if (key == null || key.trim().isEmpty()) {
+                            key = parameterNames[i]; // 使用参数名称
+                        }
+
+                        // 添加到对应的注解类型映射
+                        resultMap.get(annotationType)
+                                .put(key, new ParamInfo(method.getParameterTypes()[i], args[i]));
+                    }
+                }
+            }
+        }
+        return resultMap;
+    }
+
+    /**
+     * 提取带有指定注解的参数及其值。
+     *
      * @param method            方法
      * @param args              参数值数组
      * @param annotationType    注解类型

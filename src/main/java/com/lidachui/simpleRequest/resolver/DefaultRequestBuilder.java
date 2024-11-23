@@ -11,11 +11,13 @@ import com.lidachui.simpleRequest.util.ParamInfo;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.UnsupportedEncodingException;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -42,19 +44,36 @@ public class DefaultRequestBuilder implements RequestBuilder {
             Method method, Object[] args, String baseUrl, RestRequest restRequest) {
         Request request = new Request();
 
+        Map<Class<? extends Annotation>, Function<Annotation, String>> annotationTypeMap =
+                new HashMap<>();
+        annotationTypeMap.put(
+                PathVariable.class, annotation -> ((PathVariable) annotation).value());
+        annotationTypeMap.put(QueryParam.class, annotation -> ((QueryParam) annotation).value());
+        annotationTypeMap.put(HeaderParam.class, annotation -> ((HeaderParam) annotation).value());
+        annotationTypeMap.put(BodyParam.class, annotation -> "body"); // 默认键值
+
+        Map<Class<? extends Annotation>, Map<String, ParamInfo>> params =
+                AnnotationParamExtractor.extractParamsWithTypes(method, args, annotationTypeMap);
+
+        // 获取不同类型注解参数
+        Map<String, ParamInfo> pathParams = params.get(PathVariable.class);
+        Map<String, ParamInfo> queryParams = params.get(QueryParam.class);
+        Map<String, ParamInfo> headerParams = params.get(HeaderParam.class);
+        Map<String, ParamInfo> bodyParams = params.get(BodyParam.class);
+
         // 构建完整 URL
-        String fullUrl = buildFullUrl(baseUrl, restRequest.path(), method, args);
+        String fullUrl = buildFullUrl(baseUrl, restRequest.path(), method, pathParams, queryParams);
         request.setUrl(fullUrl);
 
         // 设置 HTTP 方法
         request.setMethod(restRequest.method());
 
         // 构建 Headers
-        Map<String, String> headers = parseHeaders(restRequest.headers(), method, args);
+        Map<String, String> headers = parseHeaders(restRequest.headers(), headerParams);
         request.setHeaders(headers);
 
         // 提取 Body 参数
-        Object body = extractBodyParam(method, args);
+        Object body = extractBodyParam(bodyParams);
         request.setBody(body);
 
         // 设置响应类型
@@ -64,18 +83,23 @@ public class DefaultRequestBuilder implements RequestBuilder {
         return request;
     }
 
-    private String buildFullUrl(String baseUrl, String path, Method method, Object[] args) {
+    private String buildFullUrl(
+            String baseUrl,
+            String path,
+            Method method,
+            Map<String, ParamInfo> pathParams,
+            Map<String, ParamInfo> queryParams) {
         StringBuilder fullUrlBuilder = new StringBuilder(baseUrl);
 
         // 替换路径参数
-        path = replacePathVariables(path, method, args);
+        path = replacePathVariables(path, pathParams);
         fullUrlBuilder.append(path);
 
         // 从注解中提取 Query 参数
         Map<String, String> annotationQueryParams = parseQueryParamsFromAnnotation(method);
 
         // 从方法参数中提取 Query 参数
-        Map<String, ParamInfo> methodQueryParams = extractQueryParamsWithType(method, args);
+        Map<String, ParamInfo> methodQueryParams = queryParams;
         Map<String, String> methodQueryParamsMap =
                 methodQueryParams.entrySet().stream()
                         .collect(
@@ -130,13 +154,7 @@ public class DefaultRequestBuilder implements RequestBuilder {
         return queryParams;
     }
 
-    private String replacePathVariables(String path, Method method, Object[] args) {
-        Map<String, ParamInfo> pathParams =
-                AnnotationParamExtractor.extractParamsWithType(
-                        method,
-                        args,
-                        PathVariable.class,
-                        annotation -> ((PathVariable) annotation).value());
+    private String replacePathVariables(String path, Map<String, ParamInfo> pathParams) {
         for (Map.Entry<String, ParamInfo> entry : pathParams.entrySet()) {
             if (path.contains("{" + entry.getKey() + "}")) {
                 path =
@@ -148,31 +166,21 @@ public class DefaultRequestBuilder implements RequestBuilder {
         return path;
     }
 
-    private Map<String, ParamInfo> extractQueryParamsWithType(Method method, Object[] args) {
-        return AnnotationParamExtractor.extractParamsWithType(
-                method, args, QueryParam.class, annotation -> ((QueryParam) annotation).value());
-    }
-
-    private Map<String, String> parseHeaders(String[] headers, Method method, Object[] args) {
+    private Map<String, String> parseHeaders(
+            String[] headers, Map<String, ParamInfo> headerParams) {
         Map<String, String> headerMap = new HashMap<>();
         for (String header : headers) {
             String[] split = header.split(":", 2);
             if (split.length == 2) {
                 String key = split[0].trim();
                 String value = split[1].trim();
-                headerMap.put(key, resolveHeaderParamValue(value, method, args));
+                headerMap.put(key, resolveHeaderParamValue(value, headerParams));
             }
         }
         return headerMap;
     }
 
-    private String resolveHeaderParamValue(String value, Method method, Object[] args) {
-        Map<String, ParamInfo> headerParams =
-                AnnotationParamExtractor.extractParamsWithType(
-                        method,
-                        args,
-                        HeaderParam.class,
-                        annotation -> ((HeaderParam) annotation).value());
+    private String resolveHeaderParamValue(String value, Map<String, ParamInfo> headerParams) {
         for (Map.Entry<String, ParamInfo> entry : headerParams.entrySet()) {
             if (value.contains("{" + entry.getKey() + "}")) {
                 value =
@@ -183,11 +191,7 @@ public class DefaultRequestBuilder implements RequestBuilder {
         return value;
     }
 
-    private Object extractBodyParam(Method method, Object[] args) {
-        Map<String, ParamInfo> bodyParams =
-                AnnotationParamExtractor.extractParamsWithType(
-                        method, args, BodyParam.class, annotation -> "body" // 统一返回占位符 "body"，因为只关心值
-                        );
+    private Object extractBodyParam(Map<String, ParamInfo> bodyParams) {
         return bodyParams.isEmpty() ? null : bodyParams.values().iterator().next().getValue();
     }
 
