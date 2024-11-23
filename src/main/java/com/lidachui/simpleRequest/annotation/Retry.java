@@ -45,5 +45,5 @@ public @interface Retry {
      *
      * @return BackoffStrategy
      */
-    BackoffStrategy backoff() default BackoffStrategy.FIXED; //
+    BackoffStrategy backoff() default BackoffStrategy.FIXED;
 }
