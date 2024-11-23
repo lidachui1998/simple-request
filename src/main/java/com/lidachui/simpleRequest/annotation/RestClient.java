@@ -1,7 +1,7 @@
 package com.lidachui.simpleRequest.annotation;
 
 import com.lidachui.simpleRequest.constants.RequestClientType;
-import com.lidachui.simpleRequest.serialize.DefaultSerializer;
+import com.lidachui.simpleRequest.serialize.JacksonSerializer;
 import com.lidachui.simpleRequest.serialize.Serializer;
 import com.lidachui.simpleRequest.validator.DefaultResponseValidator;
 import com.lidachui.simpleRequest.validator.ResponseValidator;
@@ -59,5 +59,5 @@ public @interface RestClient {
      *
      * @return 类<？ 扩展序列化程序>
      */
-    Class<? extends Serializer> serializer() default DefaultSerializer.class;
+    Class<? extends Serializer> serializer() default JacksonSerializer.class;
 }

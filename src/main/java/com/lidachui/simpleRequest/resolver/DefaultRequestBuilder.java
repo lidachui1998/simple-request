@@ -5,19 +5,18 @@ import com.lidachui.simpleRequest.annotation.HeaderParam;
 import com.lidachui.simpleRequest.annotation.PathVariable;
 import com.lidachui.simpleRequest.annotation.QueryParam;
 import com.lidachui.simpleRequest.annotation.RestRequest;
+import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
+import com.lidachui.simpleRequest.util.ParamInfo;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.UnsupportedEncodingException;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
-import com.lidachui.simpleRequest.util.ParamInfo;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * DefaultRequestBuilder 构建 HTTP 请求，支持路径参数、查询参数和请求体

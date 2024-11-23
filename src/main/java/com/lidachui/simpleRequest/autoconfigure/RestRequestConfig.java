@@ -1,11 +1,11 @@
 package com.lidachui.simpleRequest.autoconfigure;
 
+import com.lidachui.simpleRequest.core.RestClientProxyFactory;
 import com.lidachui.simpleRequest.handler.OkHttpHandler;
 import com.lidachui.simpleRequest.handler.RestTemplateHandler;
 import com.lidachui.simpleRequest.resolver.RestTemplateResponseBuilder;
-import com.lidachui.simpleRequest.resolver.OkHttpResponseBuilder;
 import com.lidachui.simpleRequest.validator.DefaultResponseValidator;
-import com.lidachui.simpleRequest.core.RestClientProxyFactory;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -38,8 +38,6 @@ public class RestRequestConfig {
 
     @Bean(name = "okhttpClientHandler")
     public OkHttpHandler okHttpHandler() {
-        OkHttpHandler okHttpHandler = new OkHttpHandler();
-        okHttpHandler.setResponseBuilder(new OkHttpResponseBuilder());
-        return okHttpHandler;
+        return new OkHttpHandler();
     }
 }

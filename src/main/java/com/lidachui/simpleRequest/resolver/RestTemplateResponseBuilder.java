@@ -1,7 +1,5 @@
 package com.lidachui.simpleRequest.resolver;
 
-import com.lidachui.simpleRequest.resolver.Response;
-import com.lidachui.simpleRequest.resolver.ResponseBuilder;
 
 /**
  * RestTemplateResponseBuilder

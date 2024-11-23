@@ -13,7 +13,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  * @date: 2024/11/22 23:04
  * @version: 1.0
  */
-public class DefaultSerializer implements Serializer {
+public class JacksonSerializer implements Serializer {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 

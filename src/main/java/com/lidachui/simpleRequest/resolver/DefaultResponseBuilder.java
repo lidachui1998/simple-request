@@ -1,6 +1,6 @@
 package com.lidachui.simpleRequest.resolver;
 
-import com.lidachui.simpleRequest.serialize.DefaultSerializer;
+import com.lidachui.simpleRequest.serialize.JacksonSerializer;
 import com.lidachui.simpleRequest.serialize.Serializer;
 
 /**
@@ -10,8 +10,8 @@ import com.lidachui.simpleRequest.serialize.Serializer;
  * @date: 2024/11/23 14:08
  * @version: 1.0
  */
-public class OkHttpResponseBuilder implements ResponseBuilder{
-    private static final Serializer serializer = new DefaultSerializer();
+public class DefaultResponseBuilder implements ResponseBuilder{
+    private static final Serializer serializer = new JacksonSerializer();
 
     @Override
     public <T> T buildResponse(Response response, Class<T> responseType) {

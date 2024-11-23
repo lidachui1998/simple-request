@@ -6,8 +6,6 @@ import com.lidachui.simpleRequest.constants.BackoffStrategy;
 import com.lidachui.simpleRequest.handler.AbstractHttpClientHandler;
 import com.lidachui.simpleRequest.handler.HttpClientHandler;
 import com.lidachui.simpleRequest.resolver.*;
-import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
-import com.lidachui.simpleRequest.util.ParamInfo;
 import com.lidachui.simpleRequest.validator.ResponseValidator;
 import com.lidachui.simpleRequest.validator.ValidationResult;
 

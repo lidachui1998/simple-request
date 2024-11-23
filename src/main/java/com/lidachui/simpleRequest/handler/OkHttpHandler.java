@@ -3,7 +3,7 @@ package com.lidachui.simpleRequest.handler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
-import com.lidachui.simpleRequest.serialize.DefaultSerializer;
+import com.lidachui.simpleRequest.serialize.JacksonSerializer;
 import com.lidachui.simpleRequest.serialize.Serializer;
 import kotlin.Pair;
 import okhttp3.*;
@@ -22,7 +22,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
 
     private final OkHttpClient client;
 
-    private final Serializer serializer = new DefaultSerializer();
+    private final Serializer serializer = new JacksonSerializer();
 
     public OkHttpHandler() {
         this.client = new OkHttpClient();
