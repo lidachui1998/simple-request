@@ -1,5 +1,7 @@
 package com.lidachui.simpleRequest.validator;
 
+import com.lidachui.simpleRequest.resolver.Response;
+
 /**
  * DefaultResponseValidator
  *
@@ -10,7 +12,7 @@ package com.lidachui.simpleRequest.validator;
 public class DefaultResponseValidator implements ResponseValidator {
 
     @Override
-    public ValidationResult validate(Object response) {
+    public ValidationResult validate(Response response) {
         return new ValidationResult(true, "");
     }
 }

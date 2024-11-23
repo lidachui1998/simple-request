@@ -2,11 +2,11 @@ package com.lidachui.simpleRequest.handler;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.lidachui.simpleRequest.resolver.Request;
+import com.lidachui.simpleRequest.resolver.Response;
 import com.lidachui.simpleRequest.serialize.DefaultSerializer;
 import com.lidachui.simpleRequest.serialize.Serializer;
-
+import kotlin.Pair;
 import okhttp3.*;
-import okhttp3.OkHttpClient;
 
 import java.io.IOException;
 import java.util.*;
@@ -29,7 +29,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
     }
 
     @Override
-    protected <T> T executeRequest(Request request) {
+    protected Response executeRequest(Request request) {
         // 构建 OkHttp 请求
         okhttp3.Request.Builder requestBuilder =
                 new okhttp3.Request.Builder().url(request.getUrl());
@@ -84,13 +84,16 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
             }
 
             // 执行请求并处理响应
-            Response response = client.newCall(requestBuilder.build()).execute();
+            okhttp3.Response response = client.newCall(requestBuilder.build()).execute();
             if (response.isSuccessful()) {
-                if (request.getResponseType() == String.class) {
-                    return (T) response.body().string();
+                Map<String, String> headersMap = new HashMap<>();
+                Headers headers = response.headers();
+                for (Pair<? extends String, ? extends String> header : headers) {
+                    String first = header.getFirst();
+                    String second = header.getSecond();
+                    headersMap.put(first, second);
                 }
-                return (T)
-                        serializer.deserialize(response.body().string(), request.getResponseType());
+                return new Response(response.body(), headersMap);
             } else {
                 throw new IOException("Request failed with status code: " + response.code());
             }

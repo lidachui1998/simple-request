@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
+import com.lidachui.simpleRequest.util.ParamInfo;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -30,14 +32,15 @@ public class DefaultRequestBuilder implements RequestBuilder {
     /**
      * 构建请求
      *
-     * @param method      方法
-     * @param args        args
-     * @param baseUrl     基本url
-     * @param restRequest 注解
-     * @return Request
+     * @param method 方法
+     * @param args 方法参数值
+     * @param baseUrl 基本 URL
+     * @param restRequest RestRequest 注解
+     * @return 构建好的 Request 对象
      */
     @Override
-    public Request buildRequest(Method method, Object[] args, String baseUrl, RestRequest restRequest) {
+    public Request buildRequest(
+            Method method, Object[] args, String baseUrl, RestRequest restRequest) {
         Request request = new Request();
 
         // 构建完整 URL
@@ -54,7 +57,10 @@ public class DefaultRequestBuilder implements RequestBuilder {
         // 提取 Body 参数
         Object body = extractBodyParam(method, args);
         request.setBody(body);
+
+        // 设置响应类型
         request.setResponseType(method.getReturnType());
+
         log.debug("Built request: {}", request);
         return request;
     }
@@ -70,27 +76,40 @@ public class DefaultRequestBuilder implements RequestBuilder {
         Map<String, String> annotationQueryParams = parseQueryParamsFromAnnotation(method);
 
         // 从方法参数中提取 Query 参数
-        Map<String, String> methodQueryParams = extractParams(method, args, QueryParam.class);
+        Map<String, ParamInfo> methodQueryParams = extractQueryParamsWithType(method, args);
+        Map<String, String> methodQueryParamsMap =
+                methodQueryParams.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry -> entry.getValue().getValue().toString()));
 
         // 替换注解中 Query 参数的占位符
-        annotationQueryParams.replaceAll((key, value) -> {
-            if (value.contains("{")) { // 如果存在占位符
-                for (Map.Entry<String, String> entry : methodQueryParams.entrySet()) {
-                    value = value.replace("{" + entry.getKey() + "}", entry.getValue());
-                }
-            }
-            return value;
-        });
+        annotationQueryParams.replaceAll(
+                (key, value) -> {
+                    if (value.contains("{")) { // 如果存在占位符
+                        for (Map.Entry<String, String> entry : methodQueryParamsMap.entrySet()) {
+                            value = value.replace("{" + entry.getKey() + "}", entry.getValue());
+                        }
+                    }
+                    return value;
+                });
 
         // 合并 Query 参数，方法参数优先
-        methodQueryParams.forEach(annotationQueryParams::putIfAbsent);
+        methodQueryParamsMap.forEach(annotationQueryParams::putIfAbsent);
 
         // 构建完整 URL 的 Query 部分
         if (!annotationQueryParams.isEmpty()) {
-            fullUrlBuilder.append("?")
-                    .append(annotationQueryParams.entrySet().stream()
-                            .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
-                            .collect(Collectors.joining("&")));
+            fullUrlBuilder
+                    .append("?")
+                    .append(
+                            annotationQueryParams.entrySet().stream()
+                                    .map(
+                                            entry ->
+                                                    encode(entry.getKey())
+                                                            + "="
+                                                            + encode(entry.getValue()))
+                                    .collect(Collectors.joining("&")));
         }
 
         return fullUrlBuilder.toString();
@@ -113,34 +132,26 @@ public class DefaultRequestBuilder implements RequestBuilder {
     }
 
     private String replacePathVariables(String path, Method method, Object[] args) {
-        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
-        for (int i = 0; i < parameterAnnotations.length; i++) {
-            for (Annotation annotation : parameterAnnotations[i]) {
-                if (annotation instanceof PathVariable) {
-                    String paramName = ((PathVariable) annotation).value();
-                    if (path.contains("{" + paramName + "}")) {
-                        path = path.replace("{" + paramName + "}", encode(args[i].toString()));
-                    }
-                }
+        Map<String, ParamInfo> pathParams =
+                AnnotationParamExtractor.extractParamsWithType(
+                        method,
+                        args,
+                        PathVariable.class,
+                        annotation -> ((PathVariable) annotation).value());
+        for (Map.Entry<String, ParamInfo> entry : pathParams.entrySet()) {
+            if (path.contains("{" + entry.getKey() + "}")) {
+                path =
+                        path.replace(
+                                "{" + entry.getKey() + "}",
+                                encode(entry.getValue().getValue().toString()));
             }
         }
         return path;
     }
 
-    private Map<String, String> extractParams(Method method, Object[] args, Class<? extends Annotation> annotationType) {
-        Map<String, String> params = new HashMap<>();
-        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
-        for (int i = 0; i < parameterAnnotations.length; i++) {
-            for (Annotation annotation : parameterAnnotations[i]) {
-                if (annotationType.isInstance(annotation)) {
-                    String paramName = annotationType == QueryParam.class
-                            ? ((QueryParam) annotation).value()
-                            : ((PathVariable) annotation).value();
-                    params.put(paramName, args[i].toString());
-                }
-            }
-        }
-        return params;
+    private Map<String, ParamInfo> extractQueryParamsWithType(Method method, Object[] args) {
+        return AnnotationParamExtractor.extractParamsWithType(
+                method, args, QueryParam.class, annotation -> ((QueryParam) annotation).value());
     }
 
     private Map<String, String> parseHeaders(String[] headers, Method method, Object[] args) {
@@ -157,30 +168,28 @@ public class DefaultRequestBuilder implements RequestBuilder {
     }
 
     private String resolveHeaderParamValue(String value, Method method, Object[] args) {
-        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
-        for (int i = 0; i < args.length; i++) {
-            for (Annotation annotation : parameterAnnotations[i]) {
-                if (annotation instanceof HeaderParam) {
-                    String paramName = ((HeaderParam) annotation).value();
-                    if (value.contains("{" + paramName + "}")) {
-                        value = value.replace("{" + paramName + "}", args[i].toString());
-                    }
-                }
+        Map<String, ParamInfo> headerParams =
+                AnnotationParamExtractor.extractParamsWithType(
+                        method,
+                        args,
+                        HeaderParam.class,
+                        annotation -> ((HeaderParam) annotation).value());
+        for (Map.Entry<String, ParamInfo> entry : headerParams.entrySet()) {
+            if (value.contains("{" + entry.getKey() + "}")) {
+                value =
+                        value.replace(
+                                "{" + entry.getKey() + "}", entry.getValue().getValue().toString());
             }
         }
         return value;
     }
 
     private Object extractBodyParam(Method method, Object[] args) {
-        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
-        for (int i = 0; i < parameterAnnotations.length; i++) {
-            for (Annotation annotation : parameterAnnotations[i]) {
-                if (annotation instanceof BodyParam) {
-                    return args[i];
-                }
-            }
-        }
-        return null;
+        Map<String, ParamInfo> bodyParams =
+                AnnotationParamExtractor.extractParamsWithType(
+                        method, args, BodyParam.class, annotation -> "body" // 统一返回占位符 "body"，因为只关心值
+                        );
+        return bodyParams.isEmpty() ? null : bodyParams.values().iterator().next().getValue();
     }
 
     private String encode(String value) {
@@ -190,6 +199,4 @@ public class DefaultRequestBuilder implements RequestBuilder {
             throw new RuntimeException("Failed to encode URL parameter: " + value, e);
         }
     }
-
-
 }

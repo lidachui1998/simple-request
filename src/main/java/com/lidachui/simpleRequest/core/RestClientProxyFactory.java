@@ -1,15 +1,13 @@
 package com.lidachui.simpleRequest.core;
 
-import com.lidachui.simpleRequest.annotation.Auth;
-import com.lidachui.simpleRequest.annotation.RestClient;
-import com.lidachui.simpleRequest.annotation.RestRequest;
-import com.lidachui.simpleRequest.annotation.Retry;
+import com.lidachui.simpleRequest.annotation.*;
 import com.lidachui.simpleRequest.auth.AuthProvider;
 import com.lidachui.simpleRequest.constants.BackoffStrategy;
+import com.lidachui.simpleRequest.handler.AbstractHttpClientHandler;
 import com.lidachui.simpleRequest.handler.HttpClientHandler;
-import com.lidachui.simpleRequest.resolver.DefaultRequestBuilder;
-import com.lidachui.simpleRequest.resolver.Request;
-import com.lidachui.simpleRequest.resolver.RequestBuilder;
+import com.lidachui.simpleRequest.resolver.*;
+import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
+import com.lidachui.simpleRequest.util.ParamInfo;
 import com.lidachui.simpleRequest.validator.ResponseValidator;
 import com.lidachui.simpleRequest.validator.ValidationResult;
 
@@ -21,7 +19,9 @@ import org.springframework.cglib.proxy.Enhancer;
 import org.springframework.cglib.proxy.MethodInterceptor;
 import org.springframework.context.ApplicationContext;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.*;
 
 /**
  * RestClientProxyFactory
@@ -75,14 +75,20 @@ public class RestClientProxyFactory {
                                 Retry retry = method.getAnnotation(Retry.class);
                                 if (retry != null) {
                                     return retryRequest(
-                                            httpClientHandler, request, responseValidator, retry);
+                                            httpClientHandler,
+                                            request,
+                                            responseValidator,
+                                            retry,
+                                            method,
+                                            args);
                                 }
                                 // 发送请求并获取响应
-                                Object response = httpClientHandler.sendRequest(request);
-
-                                // 校验响应
-                                validateResponse(responseValidator, request, response);
-                                return response;
+                                return sendRequest(
+                                        httpClientHandler,
+                                        request,
+                                        responseValidator,
+                                        method,
+                                        args);
                             }
                             return proxy.invokeSuper(obj, args);
                         });
@@ -98,13 +104,17 @@ public class RestClientProxyFactory {
      * @param request 请求
      * @param responseValidator 响应验证器
      * @param retry 重试
+     * @param method
+     * @param args
      * @return 对象
      */
     private Object retryRequest(
             HttpClientHandler httpClientHandler,
             Request request,
             ResponseValidator responseValidator,
-            Retry retry) {
+            Retry retry,
+            Method method,
+            Object[] args) {
         int attempts = 0;
         long delay = retry.delay();
         Class<? extends Throwable>[] retryFor = retry.retryFor();
@@ -112,12 +122,7 @@ public class RestClientProxyFactory {
 
         while (attempts < retry.maxRetries()) {
             try {
-                // 发送请求并获取响应
-                Object response = httpClientHandler.sendRequest(request);
-
-                // 校验响应
-                validateResponse(responseValidator, request, response);
-                return response;
+                return sendRequest(httpClientHandler, request, responseValidator, method, args);
             } catch (Throwable e) {
                 // 如果异常是指定的重试异常之一，则重试
                 if (shouldRetry(e, retryFor)) {
@@ -144,6 +149,54 @@ public class RestClientProxyFactory {
         }
 
         throw new IllegalStateException("Max retries reached for request.");
+    }
+
+    private Object sendRequest(
+            HttpClientHandler httpClientHandler,
+            Request request,
+            ResponseValidator responseValidator,
+            Method method,
+            Object[] args) {
+        // 发送请求并获取响应
+        Response response = httpClientHandler.sendRequest(request);
+
+        // 提取响应头并注入到 Map 类型的参数
+        returnHeaders(method, args, response);
+
+        // 校验响应
+        validateResponse(responseValidator, request, response);
+
+        AbstractHttpClientHandler abstractHttpClientHandler =
+                (AbstractHttpClientHandler) httpClientHandler;
+        ResponseBuilder responseBuilder = abstractHttpClientHandler.getResponseBuilder();
+        return responseBuilder.buildResponse(response, method.getReturnType());
+    }
+
+    private static void returnHeaders(Method method, Object[] args, Response response) {
+        Map<String, String> headers = response.getHeaders();
+        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
+
+        for (int i = 0; i < parameterAnnotations.length; i++) {
+            for (Annotation annotation : parameterAnnotations[i]) {
+                if (annotation instanceof ResponseHeader && args[i] instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> map = (Map<String, Object>) args[i];
+
+                    // 获取 ResponseHeader 的 name 值
+                    String headerName = ((ResponseHeader) annotation).name();
+
+                    if (headerName == null || headerName.trim().isEmpty()) {
+                        // 如果 name 为空，注入所有头部信息
+                        map.putAll(headers);
+                    } else {
+                        // 注入指定的头部信息
+                        if (headers.containsKey(headerName)) {
+                            map.put(headerName, headers.get(headerName));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -228,7 +281,7 @@ public class RestClientProxyFactory {
      * @param request 请求信息
      */
     private void validateResponse(
-            ResponseValidator responseValidator, Request request, Object response) {
+            ResponseValidator responseValidator, Request request, Response response) {
         ValidationResult validationResult = responseValidator.validate(response);
         if (!validationResult.isValid()) {
             // 调用用户自定义的校验失败处理方法

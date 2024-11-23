@@ -2,7 +2,12 @@ package com.lidachui.simpleRequest.handler;
 
 import java.util.Map;
 
+import com.lidachui.simpleRequest.resolver.DefaultResponseBuilder;
 import com.lidachui.simpleRequest.resolver.Request;
+import com.lidachui.simpleRequest.resolver.Response;
+import com.lidachui.simpleRequest.resolver.ResponseBuilder;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpMethod;
 
@@ -16,6 +21,10 @@ import org.springframework.http.HttpMethod;
 @Slf4j
 public abstract class AbstractHttpClientHandler implements HttpClientHandler {
 
+    @Getter
+    @Setter
+    private ResponseBuilder responseBuilder = new DefaultResponseBuilder();
+
     /**
      * 发送请求
      *
@@ -23,12 +32,12 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
      * @return {@code T }
      */
     @Override
-    public <T> T sendRequest(
+    public Response sendRequest(
             Request request) {
         // 请求前日志
         logRequest(request.getUrl(), request.getMethod(), request.getBody(), request.getHeaders());
         try {
-            T response = executeRequest(request);
+            Response response = executeRequest(request);
             // 请求成功后记录响应
             logResponse(request.getUrl(), request.getMethod(), response);
             return response;
@@ -40,7 +49,7 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
     }
 
     // 抽象方法，由子类实现具体的请求逻辑
-    protected abstract <T> T executeRequest(
+    protected abstract Response executeRequest(
            Request request);
 
     // 请求前日志记录
@@ -52,7 +61,7 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
     }
 
     // 响应日志记录
-    void logResponse(String url, HttpMethod method, Object response) {
+    void logResponse(String url, HttpMethod method, Response response) {
         log.info(
                 String.format(
                         "HTTP Response:\nURL: %s\nMethod: %s\nResponse: %s",
