@@ -151,7 +151,7 @@ User getUserWithAuth(@HeaderParam("token") String token);
 
 ### @Auth
 
-身份验证功能，为请求增加身份信息；支持自定义身份验证逻辑（实现AuthProvider接口，自定义身份验证逻辑，注入spring，如果spring中没有，会用构造器创建一个，会浪费性能）
+身份验证功能，为请求增加身份信息；目前可以随意修改Request，修改时要谨慎避免影响正常流程运作。支持自定义身份验证逻辑（实现AuthProvider接口，自定义身份验证逻辑，注入spring，如果spring中没有，会用构造器创建一个，会浪费性能）
 
 ```java
 @Auth(provider = ApiKeyAuthProvider.class) // 覆盖全局验证
