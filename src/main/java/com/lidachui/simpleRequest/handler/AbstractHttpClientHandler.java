@@ -27,6 +27,8 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
 
     private ResponseBuilder responseBuilder = new DefaultResponseBuilder();
 
+    private List<AbstractRequestFilter> requestFilters = new ArrayList<>();
+
     /**
      * 发送请求
      *
@@ -103,12 +105,13 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
     }
 
     private List<AbstractRequestFilter> getRequestFilters() {
-        List<AbstractRequestFilter> requestFilters = new ArrayList<>();
-        Map<String, AbstractRequestFilter> beans =
-                SpringUtil.getBeansOfType(AbstractRequestFilter.class);
-        Collection<AbstractRequestFilter> values = beans.values();
-        if (!CollectionUtils.isEmpty(values)) {
-            requestFilters.addAll(values);
+        if (CollectionUtils.isEmpty(requestFilters)){
+            Map<String, AbstractRequestFilter> beans =
+                    SpringUtil.getBeansOfType(AbstractRequestFilter.class);
+            Collection<AbstractRequestFilter> values = beans.values();
+            if (!CollectionUtils.isEmpty(values)) {
+                requestFilters.addAll(values);
+            }
         }
         return requestFilters;
     }
