@@ -2,20 +2,17 @@ package com.lidachui.simpleRequest.handler;
 
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
-
 import com.lidachui.simpleRequest.util.SpringUtil;
+
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
-import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
-
-import javax.annotation.Resource;
 
 /**
  * RestTemplateHandler

@@ -1,5 +1,6 @@
 package com.lidachui.simpleRequest.handler;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
 import com.lidachui.simpleRequest.serialize.JacksonSerializer;
@@ -9,7 +10,12 @@ import kotlin.Pair;
 
 import okhttp3.*;
 
+import java.beans.BeanInfo;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.*;
 
 /**
@@ -52,7 +58,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
             Map<String, String> headers = request.getHeaders();
             // 根据 Content-Type 来决定请求体的构建方式
             if ("application/x-www-form-urlencoded"
-                    .equalsIgnoreCase(headers.getOrDefault("Content-Type",""))) {
+                    .equalsIgnoreCase(headers.getOrDefault("Content-Type", ""))) {
                 requestBody = buildFormRequestBody(request.getBody());
             } else {
                 requestBody = buildRequestBody(request.getBody());
@@ -130,17 +136,96 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
             return null;
         }
 
-        // 假设请求体是一个 Map<String, String>，代表表单字段和值
+        Map<String, String> formFields;
+
+        // 如果是 Map 类型，直接转换
         if (body instanceof Map) {
-            Map<String, String> formFields = (Map<String, String>) body;
-            FormBody.Builder formBuilder = new FormBody.Builder();
-            for (Map.Entry<String, String> entry : formFields.entrySet()) {
-                formBuilder.add(entry.getKey(), entry.getValue());
+            formFields = (Map<String, String>) body;
+        }
+        // 如果是 Java Bean，尝试通过反射转换为 Map
+        else if (body instanceof Object) {
+            formFields = convertObjectToMap(body);
+        }
+        // 如果是 JSON 字符串，尝试解析为 Map
+        else if (body instanceof String) {
+            try {
+                formFields = parseJsonToMap((String) body);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Invalid JSON string for form data.", e);
             }
-            return formBuilder.build();
+        }
+        // 不支持其他类型
+        else {
+            throw new IllegalArgumentException(
+                    "Body must be a Map<String, String>, a bean, or a JSON string for form data.");
         }
 
-        // 如果不是 Map，则抛出异常或进行其他处理
-        throw new IllegalArgumentException("Body must be a Map<String, String> for form data.");
+        // 构建 FormBody
+        FormBody.Builder formBuilder = new FormBody.Builder();
+        for (Map.Entry<String, String> entry : formFields.entrySet()) {
+            formBuilder.add(entry.getKey(), entry.getValue());
+        }
+        return formBuilder.build();
+    }
+
+    /**
+     * 将 Java Bean 转换为 Map<String, String>
+     *
+     * @param obj Java Bean 对象
+     * @return Map 表单字段和值
+     */
+    public static Map<String, String> convertObjectToMap(Object obj) {
+        Map<String, String> map = new HashMap<>();
+        Class<?> current = obj.getClass();
+
+        while (current != null) {
+            // 1. 提取字段值
+            Field[] fields = current.getDeclaredFields();
+            for (Field field : fields) {
+                if (Modifier.isStatic(field.getModifiers())
+                        || Modifier.isTransient(field.getModifiers())) {
+                    continue; // 跳过 static 和 transient 字段
+                }
+                field.setAccessible(true);
+                try {
+                    Object value = field.get(obj);
+                    if (value != null) {
+                        map.putIfAbsent(field.getName(), value.toString());
+                    }
+                } catch (IllegalAccessException ignored) {
+                }
+            }
+
+            // 2. 提取 Bean 属性值
+            try {
+                BeanInfo beanInfo = Introspector.getBeanInfo(current);
+                for (PropertyDescriptor property : beanInfo.getPropertyDescriptors()) {
+                    String name = property.getName();
+                    if ("class".equals(name) || map.containsKey(name)) {
+                        continue; // 跳过 class 属性或已处理字段
+                    }
+                    Object value = property.getReadMethod().invoke(obj);
+                    if (value != null) {
+                        map.put(name, value.toString());
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+
+            // 3. 处理父类
+            current = current.getSuperclass();
+        }
+        return map;
+    }
+
+    /**
+     * 解析 JSON 字符串为 Map<String, String>
+     *
+     * @param json JSON 字符串
+     * @return Map 表单字段和值
+     */
+    private Map<String, String> parseJsonToMap(String json) {
+        JacksonSerializer jacksonSerializer = new JacksonSerializer();
+        return jacksonSerializer.deserialize(json, new TypeReference<Map<String, String>>() {});
     }
 }

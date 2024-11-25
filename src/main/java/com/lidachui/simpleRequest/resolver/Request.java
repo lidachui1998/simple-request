@@ -2,6 +2,7 @@ package com.lidachui.simpleRequest.resolver;
 
 import java.util.Map;
 
+import lombok.Builder;
 import lombok.Data;
 import org.springframework.http.HttpMethod;
 
