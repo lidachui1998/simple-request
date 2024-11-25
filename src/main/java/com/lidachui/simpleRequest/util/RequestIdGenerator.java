@@ -33,30 +33,30 @@ public class RequestIdGenerator {
     public static String generate() {
         long currentTimestamp = getCurrentEpochSecond();
 
-        synchronized (RequestIdGenerator.class) {
-            // 如果当前时间戳和最后生成的时间戳相同，递增序列号
-            if (currentTimestamp == lastTimestamp) {
-                long nextSequence = sequence.incrementAndGet();
-                if (nextSequence > MAX_SEQUENCE) {
-                    // 序列号超过最大值，等待下一个秒级时间戳
-                    while (currentTimestamp <= lastTimestamp) {
-                        currentTimestamp = getCurrentEpochSecond();
-                    }
-                    sequence.set(0);
+        // 确保在同一时间戳下序列号递增
+        long nextSequence = sequence.get();
+        if (currentTimestamp == lastTimestamp) {
+            // 序列号自增
+            nextSequence = sequence.incrementAndGet();
+            if (nextSequence > MAX_SEQUENCE) {
+                // 序列号超过最大值，等待下一个秒级时间戳
+                while (currentTimestamp <= lastTimestamp) {
+                    currentTimestamp = getCurrentEpochSecond();
                 }
-            } else {
-                // 时间戳变动，重置序列号
                 sequence.set(0);
             }
-
-            lastTimestamp = currentTimestamp;
-
-            // 组合生成 Request ID
-            long id = ((currentTimestamp - START_EPOCH) << 17) // 时间戳部分（左移 17 位）
-                    | (MACHINE_ID << 12)                       // 机器 ID 部分（左移 12 位）
-                    | sequence.get();                          // 序列号部分
-            return String.format("REQ-%s", Long.toString(id, 36).toUpperCase());
+        } else {
+            // 时间戳变动，重置序列号
+            sequence.set(0);
         }
+
+        lastTimestamp = currentTimestamp;
+
+        // 组合生成 Request ID
+        long id = ((currentTimestamp - START_EPOCH) << 17) // 时间戳部分（左移 17 位）
+                | (MACHINE_ID << 12)                       // 机器 ID 部分（左移 12 位）
+                | nextSequence;                            // 序列号部分
+        return String.format("REQ-%s", Long.toString(id, 36).toUpperCase());
     }
 
     /**
