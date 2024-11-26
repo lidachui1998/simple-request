@@ -1,5 +1,7 @@
 package com.lidachui.simpleRequest.core;
 
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.lidachui.simpleRequest.annotation.*;
 import com.lidachui.simpleRequest.auth.AuthProvider;
 import com.lidachui.simpleRequest.constants.BackoffStrategy;
@@ -21,6 +23,7 @@ import org.springframework.context.ApplicationContext;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.lang.reflect.Type;
 import java.util.*;
 
 /**

@@ -34,7 +34,7 @@ public class RestTemplateHandler extends AbstractHttpClientHandler {
         HttpEntity<Object> entity = new HttpEntity<>(body, httpHeaders);
         ResponseEntity response =
                 restTemplate.exchange(
-                        request.getUrl(), request.getMethod(), entity, request.getResponseType());
+                        request.getUrl(), request.getMethod(), entity, String.class);
         Map<String, String> headersMap = new HashMap<>();
         response.getHeaders().forEach((k, v) -> headersMap.put(k, v.toString()));
         return new Response(response.getBody(), headersMap);

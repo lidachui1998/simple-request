@@ -1,10 +1,15 @@
 package com.lidachui.simpleRequest.serialize;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+import java.lang.reflect.Type;
+
 
 /**
  * DefaultSerializer
@@ -15,7 +20,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  */
 public class JacksonSerializer implements Serializer {
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    public static final ObjectMapper objectMapper = new ObjectMapper();
 
     static {
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -67,6 +72,22 @@ public class JacksonSerializer implements Serializer {
             return objectMapper.readValue(input, typeReference);
         } catch (Exception e) {
             throw new RuntimeException("Deserialization failed", e);
+        }
+    }
+
+    /**
+     * 反序列化
+     *
+     * @param input      输入
+     * @param returnType 返回类型
+     * @return t
+     */
+    @Override
+    public <T> T deserialize(String input, JavaType returnType) {
+        try {
+            return objectMapper.readValue(input, returnType);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
         }
     }
 }

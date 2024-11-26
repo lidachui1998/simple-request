@@ -4,7 +4,6 @@ import com.lidachui.simpleRequest.core.RestClientProxyFactory;
 import com.lidachui.simpleRequest.filter.DefaultRequestFilter;
 import com.lidachui.simpleRequest.handler.OkHttpHandler;
 import com.lidachui.simpleRequest.handler.RestTemplateHandler;
-import com.lidachui.simpleRequest.resolver.RestTemplateResponseBuilder;
 import com.lidachui.simpleRequest.util.SpringUtil;
 import com.lidachui.simpleRequest.validator.DefaultResponseValidator;
 
@@ -33,9 +32,7 @@ public class RestRequestConfig {
 
     @Bean(name = "restTemplateHandler")
     public RestTemplateHandler restTemplateHandler() {
-        RestTemplateHandler restTemplateHandler = new RestTemplateHandler();
-        restTemplateHandler.setResponseBuilder(new RestTemplateResponseBuilder());
-        return restTemplateHandler;
+        return new RestTemplateHandler();
     }
 
     @Bean(name = "okhttpClientHandler")
