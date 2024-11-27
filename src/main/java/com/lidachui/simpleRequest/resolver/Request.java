@@ -2,6 +2,7 @@ package com.lidachui.simpleRequest.resolver;
 
 import java.util.Map;
 
+import com.lidachui.simpleRequest.serialize.Serializer;
 import lombok.Builder;
 import lombok.Data;
 import org.springframework.http.HttpMethod;
@@ -14,7 +15,7 @@ import org.springframework.http.HttpMethod;
  * @version: 1.0
  */
 @Data
-public class Request<T> {
+public class Request {
     /** url */
     private String url;
 
@@ -30,6 +31,6 @@ public class Request<T> {
     /** 请求体 */
     private Object body;
 
-    /** 响应类型 */
-    private Class<T> responseType;
+    /** 序列化器 */
+    private Serializer serializer;
 }

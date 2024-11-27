@@ -25,7 +25,7 @@ import java.util.*;
 @Slf4j
 public abstract class AbstractHttpClientHandler implements HttpClientHandler {
 
-    private ResponseBuilder responseBuilder = new DefaultResponseBuilder();
+    private AbstractResponseBuilder responseBuilder = new DefaultResponseBuilder();
 
     private List<AbstractRequestFilter> requestFilters = new ArrayList<>();
 

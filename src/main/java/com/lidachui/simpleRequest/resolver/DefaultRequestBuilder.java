@@ -58,23 +58,19 @@ public class DefaultRequestBuilder implements RequestBuilder {
                 extractBodyParam(params.getOrDefault(BodyParam.class, Collections.emptyMap()));
 
         // 构建请求对象
-        Request request = new Request<>();
+        Request request = new Request();
         request.setUrl(fullUrl);
         request.setMethod(restRequest.method());
         request.setHeaders(headers);
         request.setBody(body);
-        request.setResponseType(method.getReturnType());
-
         if (log.isDebugEnabled()) {
             log.debug(
-                    "Built request: URL={}, Method={}, Headers={}, Body={}, ResponseType={}",
+                    "Built request: URL={}, Method={}, Headers={}, Body={}",
                     request.getUrl(),
                     request.getMethod(),
                     request.getHeaders(),
-                    request.getBody(),
-                    request.getResponseType());
+                    request.getBody());
         }
-
         return request;
     }
 
@@ -176,8 +172,8 @@ public class DefaultRequestBuilder implements RequestBuilder {
         StringBuffer result = new StringBuffer();
 
         while (matcher.find()) {
-            String key = matcher.group(1);  // 获取 key 部分，即 aa
-            String replacement = paramValues.get(key);  // 获取替换值
+            String key = matcher.group(1); // 获取 key 部分，即 aa
+            String replacement = paramValues.get(key); // 获取替换值
 
             if (replacement != null) {
                 // 直接替换

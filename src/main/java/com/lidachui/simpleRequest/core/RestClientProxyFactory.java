@@ -8,6 +8,7 @@ import com.lidachui.simpleRequest.constants.BackoffStrategy;
 import com.lidachui.simpleRequest.handler.AbstractHttpClientHandler;
 import com.lidachui.simpleRequest.handler.HttpClientHandler;
 import com.lidachui.simpleRequest.resolver.*;
+import com.lidachui.simpleRequest.serialize.Serializer;
 import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
 import com.lidachui.simpleRequest.util.ParamInfo;
 import com.lidachui.simpleRequest.validator.ResponseValidator;
@@ -54,6 +55,7 @@ public class RestClientProxyFactory {
         // 获取自定义的校验器
         ResponseValidator responseValidator = getResponseValidator(restClient);
 
+        Serializer serializer = getSerializer(restClient);
         // 使用 CGLIB 创建代理对象
         Enhancer enhancer = new Enhancer();
         enhancer.setSuperclass(clientInterface);
@@ -65,10 +67,10 @@ public class RestClientProxyFactory {
                                 Request request =
                                         requestBuilder.buildRequest(
                                                 method, args, baseUrl, restRequest);
-
                                 // 获取验证提供器
                                 addAuth(clientInterface, method, request);
 
+                                request.setSerializer(serializer);
                                 String beanName = restClient.clientType().getBeanName();
                                 HttpClientHandler httpClientHandler =
                                         applicationContext.getBean(
@@ -166,7 +168,8 @@ public class RestClientProxyFactory {
 
         AbstractHttpClientHandler abstractHttpClientHandler =
                 (AbstractHttpClientHandler) httpClientHandler;
-        ResponseBuilder responseBuilder = abstractHttpClientHandler.getResponseBuilder();
+        AbstractResponseBuilder responseBuilder = abstractHttpClientHandler.getResponseBuilder();
+        responseBuilder.setSerializer(request.getSerializer());
         Object result = responseBuilder.buildResponse(response, method.getGenericReturnType());
         response.setBody(result);
         // 校验响应
@@ -283,6 +286,25 @@ public class RestClientProxyFactory {
      */
     private ResponseValidator getResponseValidator(RestClient restClient) {
         return applicationContext.getBean(restClient.responseValidator());
+    }
+
+    private Serializer getSerializer(RestClient restClient) {
+        Serializer serializer;
+        Class<? extends Serializer> serializerClass = restClient.serializer();
+        try {
+            serializer = applicationContext.getBean(serializerClass);
+        } catch (NoSuchBeanDefinitionException e) {
+            log.error(
+                    "No bean of type AuthProvider found for auth annotation in class "
+                            + restClient.serializer().getTypeName(),
+                    e);
+            try {
+                serializer = serializerClass.getDeclaredConstructor().newInstance();
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+        return serializer;
     }
 
     /**

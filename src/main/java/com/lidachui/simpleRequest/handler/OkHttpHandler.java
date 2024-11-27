@@ -192,6 +192,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
                         map.putIfAbsent(field.getName(), value.toString());
                     }
                 } catch (IllegalAccessException ignored) {
+                    throw new RuntimeException(ignored);
                 }
             }
 
@@ -209,6 +210,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
                     }
                 }
             } catch (Exception ignored) {
+                throw new RuntimeException(ignored);
             }
 
             // 3. 处理父类
