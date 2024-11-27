@@ -15,8 +15,11 @@ import java.io.UnsupportedEncodingException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -104,11 +107,8 @@ public class DefaultRequestBuilder implements RequestBuilder {
                 RequestAnnotationParser.parseQueryParams(queryParams);
 
         // 替换 Query 参数中的占位符
-        for (Map.Entry<String, String> entry : annotationQueryParams.entrySet()) {
-            String key = entry.getKey();
-            annotationQueryParams.put(
-                    key, replacePlaceholders(entry.getValue(), methodQueryParams, consumedKeys));
-        }
+        annotationQueryParams.replaceAll(
+                (key, value) -> replacePlaceholders(value, methodQueryParams, consumedKeys));
 
         // 添加未被消费的动态 Query 参数
         methodQueryParams.forEach(
@@ -163,21 +163,42 @@ public class DefaultRequestBuilder implements RequestBuilder {
         if (template == null || params.isEmpty()) {
             return template;
         }
+
+        // 1. 将参数 Map 提前转换为一个简单的 Map<String, String>，减少每次获取值时的复杂操作
+        Map<String, String> paramValues = new HashMap<>();
         for (Map.Entry<String, ParamInfo> entry : params.entrySet()) {
-            String placeholder = "{" + entry.getKey() + "}";
-            if (template.contains(placeholder)) {
-                template =
-                        template.replace(
-                                placeholder, encode(entry.getValue().getValue().toString()));
-                consumedKeys.add(entry.getKey());
+            paramValues.put(entry.getKey(), entry.getValue().getValue().toString());
+        }
+
+        // 2. 使用正则表达式进行批量替换
+        Pattern pattern = Pattern.compile("\\$\\{([a-zA-Z0-9_]+)\\}");
+        Matcher matcher = pattern.matcher(template);
+        StringBuffer result = new StringBuffer();
+
+        while (matcher.find()) {
+            String key = matcher.group(1);  // 获取 key 部分，即 aa
+            String replacement = paramValues.get(key);  // 获取替换值
+
+            if (replacement != null) {
+                // 直接替换
+                matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+                consumedKeys.add(key); // 标记为已消费
+            } else {
+                // 如果没有对应的参数，保留原占位符
+                matcher.appendReplacement(result, Matcher.quoteReplacement(matcher.group()));
             }
         }
-        return template;
+
+        // 将剩余的未匹配部分追加到结果中
+        matcher.appendTail(result);
+
+        return result.toString();
     }
 
     private String encode(String value) {
+        // 只做一次编码并缓存，避免重复调用
         try {
-            return URLEncoder.encode(value, "UTF-8");
+            return URLEncoder.encode(value, StandardCharsets.UTF_8.name());
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException("Failed to encode URL parameter: " + value, e);
         }
