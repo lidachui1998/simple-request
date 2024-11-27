@@ -6,7 +6,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
 import java.lang.reflect.Type;
-import java.util.*;
+import com.google.gson.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Date;
 
 /**
  * GsonSerializer
@@ -15,14 +18,6 @@ import java.util.*;
  * @date: 2024/11/27 23:47
  * @version: 1.0
  */
-import com.google.gson.*;
-import com.google.gson.reflect.TypeToken;
-
-import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Date;
-
 public class GsonSerializer implements Serializer {
 
     private static final Gson gson = new GsonBuilder()
