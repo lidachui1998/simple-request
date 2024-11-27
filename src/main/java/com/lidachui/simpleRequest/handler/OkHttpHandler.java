@@ -1,6 +1,5 @@
 package com.lidachui.simpleRequest.handler;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
 import com.lidachui.simpleRequest.serialize.JacksonSerializer;
@@ -224,8 +223,8 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
      * @param json JSON 字符串
      * @return Map 表单字段和值
      */
-    private Map<String, String> parseJsonToMap(String json) {
+    private Map parseJsonToMap(String json) {
         JacksonSerializer jacksonSerializer = new JacksonSerializer();
-        return jacksonSerializer.deserialize(json, new TypeReference<Map<String, String>>() {});
+        return jacksonSerializer.deserialize(json, Map.class);
     }
 }
