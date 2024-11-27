@@ -1,5 +1,7 @@
 package com.lidachui.simpleRequest.resolver;
 
+import java.lang.reflect.Type;
+
 /**
  * ResponseBuilder
  *
@@ -9,5 +11,5 @@ package com.lidachui.simpleRequest.resolver;
  */
 public interface ResponseBuilder {
 
-    <T> T buildResponse(Response response, Class<T> responseType);
+    <T> T buildResponse(Response response, Type responseType);
 }

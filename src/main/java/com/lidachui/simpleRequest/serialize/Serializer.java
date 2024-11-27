@@ -34,17 +34,8 @@ public interface Serializer {
      * 反序列化
      *
      * @param input 输入
-     * @param typeReference 类型参考
+     * @param responseType 类型参考
      * @return t
      */
-    <T> T deserialize(String input, TypeReference<T> typeReference);
-
-    /**
-     * 反序列化
-     *
-     * @param input 输入
-     * @param returnType 返回类型
-     * @return t
-     */
-    <T> T deserialize(String input, JavaType returnType);
+    <T> T deserialize(String input, Type responseType);
 }

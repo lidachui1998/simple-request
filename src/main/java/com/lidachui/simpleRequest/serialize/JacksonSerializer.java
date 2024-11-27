@@ -1,15 +1,13 @@
 package com.lidachui.simpleRequest.serialize;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.lang.reflect.Type;
-
+import java.util.*;
 
 /**
  * DefaultSerializer
@@ -63,31 +61,58 @@ public class JacksonSerializer implements Serializer {
      * 反序列化
      *
      * @param input 输入
-     * @param typeReference 类型参考
+     * @param responseType 类型参考
      * @return t
      */
     @Override
-    public <T> T deserialize(String input, TypeReference<T> typeReference) {
+    public <T> T deserialize(String input, Type responseType) {
         try {
-            return objectMapper.readValue(input, typeReference);
+            // 获取 ObjectMapper 的 JsonParser 实例
+            JsonParser parser = objectMapper.getFactory().createParser(input);
+
+            // 获取响应类型的 JavaType
+            JavaType javaType = objectMapper.getTypeFactory().constructType(responseType);
+
+            // 遍历 JSON 内容，手动解析每个节点
+            JsonNode rootNode = parser.readValueAsTree(); // 将输入的 JSON 字符串转为 JsonNode
+            return parseNode(rootNode, javaType); // 递归或逐个解析每个节点
         } catch (Exception e) {
             throw new RuntimeException("Deserialization failed", e);
         }
     }
 
-    /**
-     * 反序列化
-     *
-     * @param input      输入
-     * @param returnType 返回类型
-     * @return t
-     */
-    @Override
-    public <T> T deserialize(String input, JavaType returnType) {
-        try {
-            return objectMapper.readValue(input, returnType);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+    // 解析根节点或特定节点的辅助方法
+    private <T> T parseNode(JsonNode node, JavaType targetType) {
+        // 处理空节点或者空对象
+        if (node.isNull() || (node.isObject() && node.isEmpty())) {
+            return null;
         }
+
+        // 处理对象类型，检查每个字段
+        if (node.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                JsonNode fieldValue = field.getValue();
+
+                // 如果子字段是空对象或者 null，设置为 null
+                if (fieldValue.isNull() || (fieldValue.isObject() && fieldValue.isEmpty())) {
+                    ((ObjectNode) node).set(field.getKey(), NullNode.getInstance()); // 设置为空
+                }
+            }
+            return objectMapper.convertValue(node, targetType);
+        }
+
+        // 处理数组类型，递归解析每个元素
+        if (node.isArray()) {
+            List<Object> result = new ArrayList<>();
+            for (JsonNode arrayNode : node) {
+                result.add(parseNode(arrayNode, targetType));
+            }
+            return (T) result;
+        }
+
+        // 处理基础类型（如字符串、数字等）
+        return objectMapper.convertValue(node, targetType);
     }
 }

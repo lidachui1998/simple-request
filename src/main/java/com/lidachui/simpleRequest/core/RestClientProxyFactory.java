@@ -164,13 +164,14 @@ public class RestClientProxyFactory {
         // 提取响应头并注入到 Map 类型的参数
         returnHeaders(method, args, response);
 
-        // 校验响应
-        validateResponse(responseValidator, request, response);
-
         AbstractHttpClientHandler abstractHttpClientHandler =
                 (AbstractHttpClientHandler) httpClientHandler;
         ResponseBuilder responseBuilder = abstractHttpClientHandler.getResponseBuilder();
-        return responseBuilder.buildResponse(response, method.getReturnType());
+        Object result = responseBuilder.buildResponse(response, method.getGenericReturnType());
+        response.setBody(result);
+        // 校验响应
+        validateResponse(responseValidator, request, response);
+        return result;
     }
 
     private static void returnHeaders(Method method, Object[] args, Response response) {
