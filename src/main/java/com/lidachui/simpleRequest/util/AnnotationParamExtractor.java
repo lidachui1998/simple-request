@@ -36,6 +36,10 @@ public class AnnotationParamExtractor {
         }
 
         for (int i = 0; i < parameterAnnotations.length; i++) {
+            if (args[i] == null) {
+                continue; // 跳过值为 null 的参数
+            }
+
             for (Annotation annotation : parameterAnnotations[i]) {
                 for (Map.Entry<Class<? extends Annotation>, Function<Annotation, String>> entry :
                         annotationTypeMap.entrySet()) {
@@ -76,6 +80,10 @@ public class AnnotationParamExtractor {
         String[] parameterNames = getParameterNames(method); // 获取参数名称
 
         for (int i = 0; i < parameterAnnotations.length; i++) {
+            if (args[i] == null) {
+                continue; // 跳过值为 null 的参数
+            }
+
             for (Annotation annotation : parameterAnnotations[i]) {
                 if (annotationType.isInstance(annotation)) {
                     // 如果注解值为空字符串，则使用参数名称作为键
