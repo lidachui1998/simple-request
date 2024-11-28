@@ -94,13 +94,14 @@ public class SpringUtil implements ApplicationContextAware {
     /**
      * 注册指定类到 Spring 上下文中作为一个 Bean
      *
+     * @param applicationContext Spring 上下文
      * @param beanClass 要注册的类
      */
-    public static void registerBean(Class<?> beanClass) {
-        if (context instanceof GenericWebApplicationContext) {
-            GenericWebApplicationContext applicationContext =
-                    (GenericWebApplicationContext) context;
-            applicationContext.registerBean(beanClass); // 注册 Bean
+    public static void registerBean(ApplicationContext applicationContext, Class<?> beanClass) {
+        if (applicationContext instanceof GenericWebApplicationContext) {
+            GenericWebApplicationContext context =
+                    (GenericWebApplicationContext) applicationContext;
+            context.registerBean(beanClass); // 注册 Bean
         } else {
             throw new IllegalArgumentException(
                     "ApplicationContext 不是 GenericWebApplicationContext 类型，无法注册 Bean");

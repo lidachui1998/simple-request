@@ -301,7 +301,7 @@ public class RestClientProxyFactory {
                     e);
             try {
                 serializer = serializerClass.getDeclaredConstructor().newInstance();
-                SpringUtil.registerBean(serializerClass);
+                SpringUtil.registerBean(applicationContext,serializerClass);
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }

@@ -33,7 +33,7 @@ public class RestTemplateHandler extends AbstractHttpClientHandler {
         headers.forEach(httpHeaders::set); // 添加 Headers
         Object body = request.getBody();
         HttpEntity<Object> entity = new HttpEntity<>(body, httpHeaders);
-        ResponseEntity response =
+        ResponseEntity<Object> response =
                 restTemplate.exchange(request.getUrl(), request.getMethod(), entity, Object.class);
         Map<String, String> headersMap = new HashMap<>();
         response.getHeaders().forEach((k, v) -> headersMap.put(k, v.toString()));
@@ -47,7 +47,6 @@ public class RestTemplateHandler extends AbstractHttpClientHandler {
             return SpringUtil.getBean(RestTemplate.class);
         } catch (NoSuchBeanDefinitionException e) {
             log.error("Error occurred while retrieving RestTemplate bean: " + e.getMessage(), e);
-            SpringUtil.registerBean(RestTemplate.class);
             return new RestTemplate();
         }
     }
