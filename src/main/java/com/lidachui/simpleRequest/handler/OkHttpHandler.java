@@ -58,7 +58,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
             // 根据 Content-Type 来决定请求体的构建方式
             if ("application/x-www-form-urlencoded"
                     .equalsIgnoreCase(headers.getOrDefault("Content-Type", ""))) {
-                requestBody = buildFormRequestBody(request.getBody());
+                requestBody = buildFormRequestBody(request, request.getBody());
             } else {
                 requestBody = buildRequestBody(request.getBody());
             }
@@ -127,10 +127,11 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
     /**
      * 构建表单请求体
      *
+     * @param request 请求
      * @param body 请求体
      * @return 请求正文
      */
-    private RequestBody buildFormRequestBody(Object body) {
+    private RequestBody buildFormRequestBody(Request request, Object body) {
         if (body == null) {
             return null;
         }
@@ -148,7 +149,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
         // 如果是 JSON 字符串，尝试解析为 Map
         else if (body instanceof String) {
             try {
-                formFields = parseJsonToMap((String) body);
+                formFields = parseJsonToMap(request, (String) body);
             } catch (Exception e) {
                 throw new IllegalArgumentException("Invalid JSON string for form data.", e);
             }
@@ -222,11 +223,11 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
     /**
      * 解析 JSON 字符串为 Map<String, String>
      *
+     * @param request
      * @param json JSON 字符串
      * @return Map 表单字段和值
      */
-    private Map parseJsonToMap(String json) {
-        JacksonSerializer jacksonSerializer = new JacksonSerializer();
-        return jacksonSerializer.deserialize(json, Map.class);
+    private Map parseJsonToMap(Request request, String json) {
+        return request.getSerializer().deserialize(json, Map.class);
     }
 }
