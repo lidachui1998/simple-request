@@ -289,6 +289,12 @@ public class RestClientProxyFactory {
         return applicationContext.getBean(restClient.responseValidator());
     }
 
+    /**
+     * 获取序列化器
+     *
+     * @param restClient 休息客户端
+     * @return Serializer
+     */
     private Serializer getSerializer(RestClient restClient) {
         Serializer serializer;
         Class<? extends Serializer> serializerClass = restClient.serializer();
@@ -301,7 +307,7 @@ public class RestClientProxyFactory {
                     e);
             try {
                 serializer = serializerClass.getDeclaredConstructor().newInstance();
-                SpringUtil.registerBean(applicationContext,serializerClass);
+                SpringUtil.registerBean(applicationContext, serializerClass);
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }

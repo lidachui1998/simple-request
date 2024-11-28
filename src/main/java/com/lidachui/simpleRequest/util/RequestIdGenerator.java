@@ -10,60 +10,78 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class RequestIdGenerator {
 
-    // 起始时间戳（自定义一个固定时间点）
-    private static final long START_EPOCH = 1700841600L; // 示例：2024-11-24 00:00:00 UTC 的秒级时间戳
+    // 起始时间戳（自定义一个固定时间点，例如：2024-11-24 00:00:00 UTC）
+    private static final long START_EPOCH = 1700841600000L; // 毫秒级时间戳
 
-    // 机器 ID（用来标识当前节点，0~31）
+    // 机器 ID（0~31，假设最大支持 32 个节点）
     private static final int MACHINE_ID = getMachineId();
 
-    // 最大序列号（每秒支持 4096 个请求）
+    // 数据中心 ID（0~31，假设最大支持 32 个数据中心）
+    private static final int DATACENTER_ID = 0;
+
+    // 最大序列号（每毫秒支持 4096 个请求）
     private static final long MAX_SEQUENCE = 4095L;
 
-    // 最后生成的时间戳
+    // 每部分的位数
+    private static final long MACHINE_ID_BITS = 5L;    // 机器 ID 5 位
+    private static final long DATACENTER_ID_BITS = 5L;  // 数据中心 ID 5 位
+    private static final long SEQUENCE_BITS = 12L;      // 序列号 12 位
+
+    // 每部分的偏移量
+    private static final long MACHINE_ID_SHIFT = SEQUENCE_BITS;
+    private static final long DATACENTER_ID_SHIFT = SEQUENCE_BITS + MACHINE_ID_BITS;
+    private static final long TIMESTAMP_SHIFT = SEQUENCE_BITS + MACHINE_ID_BITS + DATACENTER_ID_BITS;
+
+    // 序列号掩码
+    private static final long SEQUENCE_MASK = MAX_SEQUENCE;
+
+    // 上次生成的时间戳
     private static volatile long lastTimestamp = -1L;
 
-    // 当前时间戳对应的序列号
+    // 当前毫秒内的序列号
     private static final AtomicLong sequence = new AtomicLong(0);
 
     /**
-     * 生成 Request ID。
+     * 生成 Snowflake 风格的唯一 ID。
      *
      * @return 唯一的 Request ID
      */
     public static String generate() {
-        long currentTimestamp = getCurrentEpochSecond();
+        long currentTimestamp = getCurrentEpochMilli();
 
-        // 确保在同一时间戳下序列号递增
+        // 同一毫秒内，序列号自增
         long nextSequence = sequence.get();
         if (currentTimestamp == lastTimestamp) {
-            // 序列号自增
+            // 序列号递增
             nextSequence = sequence.incrementAndGet();
             if (nextSequence > MAX_SEQUENCE) {
-                // 序列号超过最大值，等待下一个秒级时间戳
+                // 序列号溢出，等待下一毫秒
                 while (currentTimestamp <= lastTimestamp) {
-                    currentTimestamp = getCurrentEpochSecond();
+                    currentTimestamp = getCurrentEpochMilli();
                 }
                 sequence.set(0);
             }
         } else {
-            // 时间戳变动，重置序列号
+            // 时间戳变化，重置序列号
             sequence.set(0);
         }
 
         lastTimestamp = currentTimestamp;
 
-        // 组合生成 Request ID
-        long id = ((currentTimestamp - START_EPOCH) << 17) // 时间戳部分（左移 17 位）
-                | (MACHINE_ID << 12)                       // 机器 ID 部分（左移 12 位）
-                | nextSequence;                            // 序列号部分
+        // 生成 Snowflake ID
+        long id = ((currentTimestamp - START_EPOCH) << TIMESTAMP_SHIFT) // 时间戳部分
+                | (DATACENTER_ID << DATACENTER_ID_SHIFT)                  // 数据中心 ID 部分
+                | (MACHINE_ID << MACHINE_ID_SHIFT)                        // 机器 ID 部分
+                | nextSequence;                                           // 序列号部分
+
         return String.format("REQ-%s", Long.toString(id, 36).toUpperCase());
     }
 
     /**
-     * 获取当前秒级时间戳。
+     * 获取当前毫秒级时间戳。
      */
-    private static long getCurrentEpochSecond() {
-        return Instant.now().getEpochSecond();
+    private static long getCurrentEpochMilli() {
+        return Instant.now().toEpochMilli();
     }
 
     /**
