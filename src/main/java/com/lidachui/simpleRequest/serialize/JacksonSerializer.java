@@ -1,13 +1,11 @@
 package com.lidachui.simpleRequest.serialize;
 
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.Map.Entry;
@@ -87,7 +85,7 @@ public class JacksonSerializer implements Serializer {
     // 解析根节点或特定节点的辅助方法
     private <T> T parseNode(JsonNode node, JavaType targetType) {
         // 处理空节点或者空对象
-        if (node.isNull() || (node.isObject() && node.size() == 0)) {
+        if (node.isNull() || (node.isObject() && node.isEmpty())) {
             return null;
         }
 
@@ -99,7 +97,7 @@ public class JacksonSerializer implements Serializer {
                 JsonNode fieldValue = field.getValue();
 
                 // 如果子字段是空对象或者 null，设置为 null
-                if (fieldValue.isNull() || (fieldValue.isObject() && fieldValue.size() == 0)) {
+                if (fieldValue.isNull() || (fieldValue.isObject() && fieldValue.isEmpty())) {
                     ((ObjectNode) node).set(field.getKey(), NullNode.getInstance()); // 设置为空
                 }
             }
