@@ -10,6 +10,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * DefaultSerializer
@@ -72,40 +73,49 @@ public class JacksonSerializer implements Serializer {
             // 获取 ObjectMapper 的 JsonParser 实例
             JsonParser parser = objectMapper.getFactory().createParser(input);
 
-            // 获取响应类型的 JavaType（缓存 JavaType）
-            JavaType javaType = getCachedJavaType(responseType);
+            // 获取响应类型的 JavaType
+            JavaType javaType = objectMapper.getTypeFactory().constructType(responseType);
 
-            // 使用流式解析而不是完全解析为树形结构
-            return parseNode(parser, javaType);
+            // 遍历 JSON 内容，手动解析每个节点
+            JsonNode rootNode = parser.readValueAsTree(); // 将输入的 JSON 字符串转为 JsonNode
+            return parseNode(rootNode, javaType); // 递归或逐个解析每个节点
         } catch (Exception e) {
             throw new RuntimeException("Deserialization failed", e);
         }
     }
 
-    private <T> T parseNode(JsonParser parser, JavaType targetType) throws IOException {
-        JsonToken currentToken = parser.nextToken();
+    // 解析根节点或特定节点的辅助方法
+    private <T> T parseNode(JsonNode node, JavaType targetType) {
+        // 处理空节点或者空对象
+        if (node.isNull() || (node.isObject() && node.size() == 0)) {
+            return null;
+        }
 
-        // 检查当前 token 类型
-        if (currentToken == JsonToken.START_OBJECT) {
-            // 如果是对象，直接映射
-            JsonNode rootNode = objectMapper.readTree(parser);
-            return objectMapper.treeToValue(rootNode, targetType);
-        } else if (currentToken == JsonToken.START_ARRAY) {
-            // 如果是数组，递归解析
+        // 处理对象类型，检查每个字段
+        if (node.isObject()) {
+            Iterator<Entry<String, JsonNode>> fields = node.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                JsonNode fieldValue = field.getValue();
+
+                // 如果子字段是空对象或者 null，设置为 null
+                if (fieldValue.isNull() || (fieldValue.isObject() && fieldValue.size() == 0)) {
+                    ((ObjectNode) node).set(field.getKey(), NullNode.getInstance()); // 设置为空
+                }
+            }
+            return objectMapper.convertValue(node, targetType);
+        }
+
+        // 处理数组类型，递归解析每个元素
+        if (node.isArray()) {
             List<Object> result = new ArrayList<>();
-            while (parser.nextToken() != JsonToken.END_ARRAY) {
-                result.add(parseNode(parser, targetType));
+            for (JsonNode arrayNode : node) {
+                result.add(parseNode(arrayNode, targetType));
             }
             return (T) result;
-        } else {
-            // 其他类型（如基本类型），直接返回转换后的对象
-            return objectMapper.readValue(parser, targetType);
         }
-    }
 
-    // 缓存 JavaType，减少反射调用
-    private JavaType getCachedJavaType(Type responseType) {
-        return objectMapper.getTypeFactory().constructType(responseType);
+        // 处理基础类型（如字符串、数字等）
+        return objectMapper.convertValue(node, targetType);
     }
-
 }

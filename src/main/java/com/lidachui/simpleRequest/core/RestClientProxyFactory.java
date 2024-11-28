@@ -11,6 +11,7 @@ import com.lidachui.simpleRequest.resolver.*;
 import com.lidachui.simpleRequest.serialize.Serializer;
 import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
 import com.lidachui.simpleRequest.util.ParamInfo;
+import com.lidachui.simpleRequest.util.SpringUtil;
 import com.lidachui.simpleRequest.validator.ResponseValidator;
 import com.lidachui.simpleRequest.validator.ValidationResult;
 
@@ -300,6 +301,7 @@ public class RestClientProxyFactory {
                     e);
             try {
                 serializer = serializerClass.getDeclaredConstructor().newInstance();
+                SpringUtil.registerBean(serializerClass);
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }
