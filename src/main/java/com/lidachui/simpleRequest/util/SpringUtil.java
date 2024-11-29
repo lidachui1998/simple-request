@@ -107,4 +107,8 @@ public class SpringUtil implements ApplicationContextAware {
                     "ApplicationContext 不是 GenericWebApplicationContext 类型，无法注册 Bean");
         }
     }
+
+    public static boolean isSpringContextActive() {
+        return context != null;
+    }
 }

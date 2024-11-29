@@ -105,6 +105,9 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
     }
 
     private List<AbstractRequestFilter> getRequestFilters() {
+        if (!SpringUtil.isSpringContextActive()) {
+            return requestFilters;
+        }
         if (CollectionUtils.isEmpty(requestFilters)){
             Map<String, AbstractRequestFilter> beans =
                     SpringUtil.getBeansOfType(AbstractRequestFilter.class);

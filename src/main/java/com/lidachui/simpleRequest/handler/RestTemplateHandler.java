@@ -44,7 +44,11 @@ public class RestTemplateHandler extends AbstractHttpClientHandler {
 
     public RestTemplate getRestTemplate() {
         try {
-            return SpringUtil.getBean(RestTemplate.class);
+            if (SpringUtil.isSpringContextActive()) {
+                return SpringUtil.getBean(RestTemplate.class);
+            } else {
+                return new RestTemplate();
+            }
         } catch (NoSuchBeanDefinitionException e) {
             log.error("Error occurred while retrieving RestTemplate bean: " + e.getMessage(), e);
             return new RestTemplate();
