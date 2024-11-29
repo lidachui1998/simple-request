@@ -26,6 +26,7 @@ import java.lang.reflect.Type;
 public class SimpleClient {
 
     private AbstractHttpClientHandler httpClientHandler;
+
     private Serializer serializer;
 
     private SimpleClient(AbstractHttpClientHandler httpClientHandler, Serializer serializer) {
@@ -59,22 +60,28 @@ public class SimpleClient {
     }
 
     /**
-     * 执行请求并返回 Response。
+     * 执行
      *
-     * @param request      请求对象
-     * @param responseType 响应类型（Type）
+     * @param request 请求
      * @return Response
      */
     public Response execute(Request request, Type responseType) {
-        if (httpClientHandler == null || serializer == null) {
-            throw new IllegalStateException("HttpClientHandler and Serializer must not be null");
+        if (httpClientHandler == null) {
+            if (!SpringUtil.isSpringContextActive()) {
+                httpClientHandler = new RestTemplateHandler();
+            } else {
+                httpClientHandler = SpringUtil.getBean(AbstractHttpClientHandler.class);
+            }
         }
-        request.setSerializer(serializer); // 设置序列化器
-        Response response = httpClientHandler.sendRequest(request); // 发送请求
-        DefaultResponseBuilder responseBuilder = new DefaultResponseBuilder();
-        responseBuilder.setSerializer(serializer);
-        Object responseBody = responseBuilder.buildResponse(response, responseType); // 构建响应体
-        response.setBody(responseBody); // 设置响应体
+        if (serializer == null) {
+            serializer = new JacksonSerializer();
+        }
+        request.setSerializer(serializer);
+        Response response = httpClientHandler.sendRequest(request);
+        DefaultResponseBuilder defaultResponseBuilder = new DefaultResponseBuilder();
+        defaultResponseBuilder.setSerializer(serializer);
+        Object buildResponse = defaultResponseBuilder.buildResponse(response, responseType);
+        response.setBody(buildResponse);
         return response;
     }
 }
