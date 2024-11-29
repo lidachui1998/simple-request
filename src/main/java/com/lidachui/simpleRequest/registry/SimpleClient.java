@@ -66,16 +66,6 @@ public class SimpleClient {
      * @return Response
      */
     public Response execute(Request request, Type responseType) {
-        if (httpClientHandler == null) {
-            if (!SpringUtil.isSpringContextActive()) {
-                httpClientHandler = new RestTemplateHandler();
-            } else {
-                httpClientHandler = SpringUtil.getBean(AbstractHttpClientHandler.class);
-            }
-        }
-        if (serializer == null) {
-            serializer = new JacksonSerializer();
-        }
         request.setSerializer(serializer);
         Response response = httpClientHandler.sendRequest(request);
         DefaultResponseBuilder defaultResponseBuilder = new DefaultResponseBuilder();
