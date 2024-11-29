@@ -373,7 +373,34 @@ public class CustomResponseValidator implements ResponseValidator {
 
 ---
 
+## 单独使用
 
+构建SimpleClient 使用SimpleClient直接发送请求，使用案例
+
+```java
+public static void main(String[] args){
+    SimpleClient client = new SimpleClient();
+    Request request = new Request();
+    request.setUrl("https://www.bjca.xyz/diary/user/list");
+    request.setMethod(HttpMethod.GET);
+    HashMap<String, String> headers = new HashMap<>();
+    headers.put("Accept", "application/json");
+    headers.put("Authorization", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MzI4OTM5MTMsImV4cCI6MTczMzA2NjcxMywic3ViIjoiOTM2MDY3ZDYwNzIwMTFlZDlhZGUyOWUwYWU0YWNhZjciLCJ1c2VybmFtZSI6ImFkbWluIn0.PDEjYJ1jjzMcYZpBHyg3SF_SaReFHJhWy5XnFulL6kA");
+    request.setHeaders(headers);
+
+    // 1. 构建 List<User> 类型
+    Type listOfUsersType = TypeBuilder.paramType(List.class, User.class);
+    System.out.println(listOfUsersType);  // 输出：java.util.List<com.example.User>
+
+    // 2. 构建 Result<List<User>> 类型
+    Type resultOfListUserType = TypeBuilder.paramType(Result.class, listOfUsersType);
+    System.out.println(resultOfListUserType);  // 输出：com.example.Result<java.util.List<com.example.User>>
+
+    Response response = client.execute(request, resultOfListUserType);
+    Result<List<User>> userList = (Result<List<User>>) response.getBody();
+
+}
+```
 
 ## 待完善功能
 

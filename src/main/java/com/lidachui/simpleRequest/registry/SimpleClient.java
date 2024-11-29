@@ -26,32 +26,49 @@ import java.lang.reflect.Type;
 public class SimpleClient {
 
     private AbstractHttpClientHandler httpClientHandler;
-
     private Serializer serializer;
 
+    private SimpleClient(AbstractHttpClientHandler httpClientHandler, Serializer serializer) {
+        this.httpClientHandler = httpClientHandler;
+        this.serializer = serializer;
+    }
+
+    /** 工厂方法 - 自动配置 */
+    public static SimpleClient create() {
+        AbstractHttpClientHandler handler;
+        if (!SpringUtil.isSpringContextActive()) {
+            handler = new RestTemplateHandler();
+        } else {
+            handler = SpringUtil.getBean(AbstractHttpClientHandler.class);
+        }
+        Serializer serializer = new JacksonSerializer();
+        return new SimpleClient(handler, serializer);
+    }
+
+    /** 工厂方法 - 自定义配置 */
+    public static SimpleClient create(AbstractHttpClientHandler handler, Serializer serializer) {
+        return new SimpleClient(handler, serializer);
+    }
+
     /**
-     * 执行
+     * 执行请求并返回响应
      *
-     * @param request 请求
+     * @param request 请求对象
+     * @param responseType 响应类型
      * @return Response
      */
-    public Response execute(Request request, Type responseType) {
-        if (httpClientHandler == null) {
-            if (!SpringUtil.isSpringContextActive()) {
-                httpClientHandler = new RestTemplateHandler();
-            } else {
-                httpClientHandler = SpringUtil.getBean(AbstractHttpClientHandler.class);
-            }
-        }
-        if (serializer == null) {
-            serializer = new JacksonSerializer();
+    public <T> T execute(Request request, Class<T> responseType) {
+        return execute(request, TypeBuilder.type(responseType));
+    }
+
+    public <T> T execute(Request request, Type responseType) {
+        if (httpClientHandler == null || serializer == null) {
+            throw new IllegalStateException("HttpClientHandler and Serializer must not be null");
         }
         request.setSerializer(serializer);
         Response response = httpClientHandler.sendRequest(request);
-        DefaultResponseBuilder defaultResponseBuilder = new DefaultResponseBuilder();
-        defaultResponseBuilder.setSerializer(serializer);
-        Object buildResponse = defaultResponseBuilder.buildResponse(response, responseType);
-        response.setBody(buildResponse);
-        return response;
+        DefaultResponseBuilder responseBuilder = new DefaultResponseBuilder();
+        responseBuilder.setSerializer(serializer);
+        return (T) responseBuilder.buildResponse(response, responseType);
     }
 }
