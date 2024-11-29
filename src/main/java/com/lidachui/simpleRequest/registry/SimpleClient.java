@@ -33,42 +33,48 @@ public class SimpleClient {
         this.serializer = serializer;
     }
 
-    /** 工厂方法 - 自动配置 */
+    /**
+     * 工厂方法 - 自动配置
+     *
+     * 如果当前环境是 Spring，会自动使用 Spring 中的 Bean，否则使用默认的实现。
+     */
     public static SimpleClient create() {
         AbstractHttpClientHandler handler;
         if (!SpringUtil.isSpringContextActive()) {
-            handler = new RestTemplateHandler();
+            handler = new RestTemplateHandler(); // 非 Spring 环境使用默认处理器
         } else {
-            handler = SpringUtil.getBean(AbstractHttpClientHandler.class);
+            handler = SpringUtil.getBean(AbstractHttpClientHandler.class); // Spring 环境使用 Spring 管理的 Bean
         }
-        Serializer serializer = new JacksonSerializer();
+        Serializer serializer = new JacksonSerializer(); // 默认使用 Jackson 序列化
         return new SimpleClient(handler, serializer);
     }
 
-    /** 工厂方法 - 自定义配置 */
+    /**
+     * 工厂方法 - 自定义配置
+     *
+     * 允许用户自定义 HttpClientHandler 和 Serializer。
+     */
     public static SimpleClient create(AbstractHttpClientHandler handler, Serializer serializer) {
         return new SimpleClient(handler, serializer);
     }
 
     /**
-     * 执行请求并返回响应
+     * 执行请求并返回 Response。
      *
-     * @param request 请求对象
-     * @param responseType 响应类型
+     * @param request      请求对象
+     * @param responseType 响应类型（Type）
      * @return Response
      */
-    public <T> T execute(Request request, Class<T> responseType) {
-        return execute(request, TypeBuilder.type(responseType));
-    }
-
-    public <T> T execute(Request request, Type responseType) {
+    public Response execute(Request request, Type responseType) {
         if (httpClientHandler == null || serializer == null) {
             throw new IllegalStateException("HttpClientHandler and Serializer must not be null");
         }
-        request.setSerializer(serializer);
-        Response response = httpClientHandler.sendRequest(request);
+        request.setSerializer(serializer); // 设置序列化器
+        Response response = httpClientHandler.sendRequest(request); // 发送请求
         DefaultResponseBuilder responseBuilder = new DefaultResponseBuilder();
         responseBuilder.setSerializer(serializer);
-        return (T) responseBuilder.buildResponse(response, responseType);
+        Object responseBody = responseBuilder.buildResponse(response, responseType); // 构建响应体
+        response.setBody(responseBody); // 设置响应体
+        return response;
     }
 }
