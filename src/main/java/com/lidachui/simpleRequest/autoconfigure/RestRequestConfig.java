@@ -1,6 +1,7 @@
 package com.lidachui.simpleRequest.autoconfigure;
 
-import com.lidachui.simpleRequest.core.RestClientProxyFactory;
+import com.lidachui.simpleRequest.core.HessianClientProxyFactory;
+import com.lidachui.simpleRequest.core.HttpClientProxyFactory;
 import com.lidachui.simpleRequest.filter.DefaultRequestFilter;
 import com.lidachui.simpleRequest.handler.OkHttpHandler;
 import com.lidachui.simpleRequest.handler.RestTemplateHandler;
@@ -21,8 +22,13 @@ import org.springframework.context.annotation.Configuration;
 public class RestRequestConfig {
 
     @Bean
-    public RestClientProxyFactory restClientProxyFactory() {
-        return new RestClientProxyFactory();
+    public HessianClientProxyFactory hessianClientProxyFactory() {
+        return new HessianClientProxyFactory();
+    }
+
+    @Bean
+    public HttpClientProxyFactory httpClientProxyFactory() {
+        return new HttpClientProxyFactory();
     }
 
     @Bean

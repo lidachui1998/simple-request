@@ -1,6 +1,5 @@
 package com.lidachui.simpleRequest.resolver;
 
-import com.lidachui.simpleRequest.annotation.RestRequest;
 import java.lang.reflect.Method;
 
 /**
@@ -17,9 +16,8 @@ public interface RequestBuilder {
      *
      * @param method 方法
      * @param args args
-     * @param baseUrl 基本url
-     * @param restRequest 休息请求
+     * @param params 参数
      * @return {@code Request }
      */
-    Request buildRequest(Method method, Object[] args, String baseUrl, RestRequest restRequest);
+    Request buildRequest(Method method, Object[] args, Object ... params);
 }

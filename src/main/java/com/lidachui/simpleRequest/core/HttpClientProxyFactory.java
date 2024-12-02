@@ -13,43 +13,42 @@ import com.lidachui.simpleRequest.util.SpringUtil;
 import com.lidachui.simpleRequest.validator.ResponseValidator;
 import com.lidachui.simpleRequest.validator.ValidationResult;
 
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.cglib.proxy.Enhancer;
 import org.springframework.cglib.proxy.MethodInterceptor;
-import org.springframework.context.ApplicationContext;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
 
 /**
- * RestClientProxyFactory
+ * HttpClientProxyFactory
  *
  * @author: lihuijie
- * @date: 2024/11/18 21:50
+ * @date: 2024/12/2 22:49
  * @version: 1.0
  */
 @Slf4j
-public class RestClientProxyFactory {
+public class HttpClientProxyFactory extends AbstractClientProxyFactory {
 
-    @Setter private ApplicationContext applicationContext;
+    private final RequestBuilder requestBuilder = new HttpRequestBuilder(); // 默认实现
 
-    private final RequestBuilder requestBuilder = new DefaultRequestBuilder(); // 默认实现
-
-    /** 创建指定接口的 REST 客户端代理。 */
-    @SuppressWarnings("unchecked")
+    /**
+     * 创建代理对象
+     *
+     * @param clientInterface 客户端接口类
+     * @return 客户端代理对象
+     */
+    @Override
     public <T> T create(Class<T> clientInterface) {
         RestClient restClient = clientInterface.getAnnotation(RestClient.class);
         if (restClient == null) {
             throw new IllegalArgumentException(
                     clientInterface.getName() + " is not annotated with @RestClient");
         }
-
-        String baseUrl = getBaseUrl(restClient);
-
+        String baseUrl = getBaseUrl(restClient.propertyKey(), restClient.baseUrl());
         // 获取自定义的校验器
         ResponseValidator responseValidator = getResponseValidator(restClient);
 
@@ -71,8 +70,8 @@ public class RestClientProxyFactory {
                                 request.setSerializer(serializer);
                                 String beanName = restClient.clientType().getBeanName();
                                 HttpClientHandler httpClientHandler =
-                                        applicationContext.getBean(
-                                                beanName, HttpClientHandler.class);
+                                        getApplicationContext()
+                                                .getBean(beanName, HttpClientHandler.class);
 
                                 // 检查是否需要重试
                                 Retry retry = method.getAnnotation(Retry.class);
@@ -98,6 +97,17 @@ public class RestClientProxyFactory {
 
         // 创建代理对象
         return (T) enhancer.create();
+    }
+
+    /**
+     * 判断是否支持指定客户端接口
+     *
+     * @param clientInterface 客户端接口类
+     * @return 是否支持
+     */
+    @Override
+    public boolean supports(Class<?> clientInterface) {
+        return clientInterface.isAnnotationPresent(RestClient.class);
     }
 
     /**
@@ -243,7 +253,7 @@ public class RestClientProxyFactory {
         if (auth != null) {
             AuthProvider authProvider;
             try {
-                authProvider = applicationContext.getBean(auth.provider());
+                authProvider = getApplicationContext().getBean(auth.provider());
             } catch (NoSuchBeanDefinitionException e) {
                 log.error(
                         "No bean of type AuthProvider found for auth annotation in class "
@@ -260,30 +270,13 @@ public class RestClientProxyFactory {
     }
 
     /**
-     * 获取基本url
-     *
-     * @param restClient 休息客户端
-     * @return {@code String }
-     */
-    private String getBaseUrl(RestClient restClient) {
-        String propertyKey = restClient.propertyKey();
-        if (propertyKey != null && !propertyKey.isEmpty()) {
-            String propertyValue = applicationContext.getEnvironment().getProperty(propertyKey);
-            return (propertyValue != null && !propertyValue.isEmpty())
-                    ? propertyValue
-                    : restClient.baseUrl();
-        }
-        return restClient.baseUrl();
-    }
-
-    /**
      * 获取响应验证器
      *
      * @param restClient 休息客户端
      * @return {@code ResponseValidator }
      */
     private ResponseValidator getResponseValidator(RestClient restClient) {
-        return applicationContext.getBean(restClient.responseValidator());
+        return getApplicationContext().getBean(restClient.responseValidator());
     }
 
     /**
@@ -296,7 +289,7 @@ public class RestClientProxyFactory {
         Serializer serializer;
         Class<? extends Serializer> serializerClass = restClient.serializer();
         try {
-            serializer = applicationContext.getBean(serializerClass);
+            serializer = getApplicationContext().getBean(serializerClass);
         } catch (NoSuchBeanDefinitionException e) {
             log.error(
                     "No bean of type AuthProvider found for auth annotation in class "
@@ -304,7 +297,7 @@ public class RestClientProxyFactory {
                     e);
             try {
                 serializer = serializerClass.getDeclaredConstructor().newInstance();
-                SpringUtil.registerBean(applicationContext, serializerClass);
+                SpringUtil.registerBean(getApplicationContext(), serializerClass);
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }

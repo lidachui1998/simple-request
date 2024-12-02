@@ -12,7 +12,8 @@ import lombok.Getter;
 @Getter
 public enum RequestClientType {
     REST_TEMPLATE("restTemplateHandler"),
-    OKHTTP("okhttpClientHandler");
+    OKHTTP("okhttpClientHandler"),
+    HESSIAN("hessianClientProxyFactory");
 
     private final String beanName;
 

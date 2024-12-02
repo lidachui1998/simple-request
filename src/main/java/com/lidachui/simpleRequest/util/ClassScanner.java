@@ -32,4 +32,27 @@ public class ClassScanner {
         return annotatedClasses.stream().collect(Collectors.toList());
     }
 
+    /**
+     * 获取指定包中带有特定注解的所有类。
+     *
+     * @param packageName 包名
+     * @param annotations 要查找的注解类
+     * @return 带有指定注解的类列表
+     */
+    public static List<Class<?>> getClassesWithAnnotations(String packageName, Class<? extends Annotation>... annotations) {
+        Reflections reflections = new Reflections(new ConfigurationBuilder()
+                .forPackages(packageName)
+                .addScanners(Scanners.TypesAnnotated)); // Scanners.TypesAnnotated 用于扫描类上的注解
+
+        Set<Class<?>> annotatedClasses = new HashSet<>();
+
+        // 遍历所有注解，获取标注了其中任何一个注解的类
+        for (Class<? extends Annotation> annotation : annotations) {
+            Set<Class<?>> classesWithAnnotation = reflections.getTypesAnnotatedWith(annotation);
+            annotatedClasses.addAll(classesWithAnnotation);
+        }
+
+        return annotatedClasses.stream().collect(Collectors.toList());
+    }
+
 }

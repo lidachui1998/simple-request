@@ -1,8 +1,10 @@
 package com.lidachui.simpleRequest.core;
 
 import com.lidachui.simpleRequest.annotation.EnableRestClients;
+import com.lidachui.simpleRequest.annotation.HessianClient;
 import com.lidachui.simpleRequest.annotation.RestClient;
 import com.lidachui.simpleRequest.autoconfigure.RestRequestConfig;
+
 import com.lidachui.simpleRequest.util.ClassScanner;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -36,14 +38,20 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
     private static final Logger logger = LoggerFactory.getLogger(RestClientRegistrar.class);
 
     private final List<String> basePackages = new ArrayList<>();
-    private RestClientProxyFactory restClientProxyFactory;
+    private List<AbstractClientProxyFactory> clientProxyFactories; // 支持多种类型的 ProxyFactory
+
     private boolean supportsInstanceSupplier;
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        this.restClientProxyFactory = applicationContext.getBean(RestClientProxyFactory.class);
-        this.restClientProxyFactory.setApplicationContext(applicationContext);
-
+        Map<String, AbstractClientProxyFactory> proxyFactoryMap =
+                applicationContext.getBeansOfType(AbstractClientProxyFactory.class);
+        ArrayList<AbstractClientProxyFactory> abstractClientProxyFactories =
+                new ArrayList<>(proxyFactoryMap.values());
+        for (AbstractClientProxyFactory abstractClientProxyFactory : abstractClientProxyFactories) {
+            abstractClientProxyFactory.setApplicationContext(applicationContext);
+        }
+        clientProxyFactories = abstractClientProxyFactories;
         String[] configBeanNames =
                 applicationContext.getBeanNamesForAnnotation(EnableRestClients.class);
         for (String beanName : configBeanNames) {
@@ -75,6 +83,16 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
                             for (Class<?> clazz : annotatedInterfaces) {
                                 if (clazz.isInterface()) {
                                     try {
+                                        AbstractClientProxyFactory restClientProxyFactory =
+                                                clientProxyFactories.stream()
+                                                        .filter(factory -> factory.supports(clazz))
+                                                        .findFirst()
+                                                        .orElseThrow(
+                                                                () ->
+                                                                        new IllegalArgumentException(
+                                                                                "No suitable RestClientProxyFactory found for class: "
+                                                                                        + clazz
+                                                                                                .getName()));
                                         Object proxyInstance = restClientProxyFactory.create(clazz);
                                         registerBean(beanFactory, clazz, proxyInstance);
                                         logger.info(
@@ -101,7 +119,8 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
      */
     private List<Class<?>> scanClassesWithAnnotation(String basePackage) {
         try {
-            return ClassScanner.getClassesWithAnnotation(basePackage, RestClient.class);
+            return ClassScanner.getClassesWithAnnotations(
+                    basePackage, RestClient.class, HessianClient.class);
         } catch (Exception e) {
             logger.error("Failed to scan package: {}", basePackage, e);
             return Collections.emptyList();
@@ -146,9 +165,18 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
      */
     private String determineBeanName(Class<?> clazz) {
         RestClient restClientAnnotation = clazz.getAnnotation(RestClient.class);
-        return restClientAnnotation != null && !restClientAnnotation.name().isEmpty()
-                ? restClientAnnotation.name()
-                : generateBeanName(clazz);
+        HessianClient hessianClientAnnotation = clazz.getAnnotation(HessianClient.class);
+        if (hessianClientAnnotation != null) {
+            return !hessianClientAnnotation.name().isEmpty()
+                    ? hessianClientAnnotation.name()
+                    : generateBeanName(clazz);
+        }
+        if (restClientAnnotation != null) {
+            return !restClientAnnotation.name().isEmpty()
+                    ? restClientAnnotation.name()
+                    : generateBeanName(clazz);
+        }
+        return null;
     }
 
     /**

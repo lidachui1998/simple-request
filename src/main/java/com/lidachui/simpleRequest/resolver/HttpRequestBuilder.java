@@ -25,24 +25,27 @@ import java.util.stream.Collectors;
  * @version: 1.1
  */
 @Slf4j
-public class DefaultRequestBuilder implements RequestBuilder {
+public class HttpRequestBuilder implements RequestBuilder {
 
     @Override
-    public Request buildRequest(
-            Method method, Object[] args, String baseUrl, RestRequest restRequest) {
+    public Request buildRequest(Method method, Object[] args, Object... params) {
+        String baseUrl = (String) params[0];
 
+        RestRequest restRequest = method.getAnnotation(RestRequest.class);
         // 提取参数信息
-        Map<Class<? extends Annotation>, Map<String, ParamInfo>> params = getParams(method, args);
+        Map<Class<? extends Annotation>, Map<String, ParamInfo>> methodParams =
+                getParams(method, args);
 
         // 构建 URL 和 Query 参数
 
-        Pair<String, Map<String, String>> urlPair = constructUrl(baseUrl, restRequest, params);
+        Pair<String, Map<String, String>> urlPair =
+                constructUrl(baseUrl, restRequest, methodParams);
         String fullUrl = urlPair.getKey();
         // 构建 Header 参数
-        Map<String, String> headers = constructHeaders(restRequest.headers(), params);
+        Map<String, String> headers = constructHeaders(restRequest.headers(), methodParams);
 
         // 提取 Body 参数
-        Object body = extractBodyParam(params);
+        Object body = extractBodyParam(methodParams);
 
         // 构建请求对象
         Request request = new Request();
