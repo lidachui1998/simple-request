@@ -6,7 +6,6 @@ import com.lidachui.simpleRequest.annotation.RestClient;
 import com.lidachui.simpleRequest.autoconfigure.RestRequestConfig;
 
 import com.lidachui.simpleRequest.util.ClassScanner;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -73,7 +72,7 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
     }
 
     @Override
-    public void postProcessBeanFactory(@NotNull ConfigurableListableBeanFactory beanFactory)
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory)
             throws BeansException {
         basePackages.parallelStream()
                 .forEach(
