@@ -4,6 +4,8 @@ package com.lidachui.simpleRequest.handler;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * HttpClientHandler
  *
@@ -21,4 +23,10 @@ public interface HttpClientHandler {
      */
     Response sendRequest(
             Request request);
+
+
+    /**
+     * 发送异步请求
+     */
+    CompletableFuture<Response> sendRequestAsync(Request request);
 }

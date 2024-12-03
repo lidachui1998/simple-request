@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.CollectionUtils;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * AbstractHttpClientHandler
@@ -55,6 +56,17 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
             invokeErrorFilters(request, response, e, requestContext);
             throw e; // 重新抛出异常
         }
+    }
+
+    /**
+     * 异步发送请求
+     *
+     * @param request 请求
+     * @return 可完成未来<response>
+     */
+    @Override
+    public CompletableFuture<Response> sendRequestAsync(Request request) {
+        return CompletableFuture.supplyAsync(() -> sendRequest(request));
     }
 
     // 抽象方法，由子类实现具体的请求逻辑
@@ -108,7 +120,7 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
         if (!SpringUtil.isSpringContextActive()) {
             return requestFilters;
         }
-        if (CollectionUtils.isEmpty(requestFilters)){
+        if (CollectionUtils.isEmpty(requestFilters)) {
             Map<String, AbstractRequestFilter> beans =
                     SpringUtil.getBeansOfType(AbstractRequestFilter.class);
             Collection<AbstractRequestFilter> values = beans.values();
