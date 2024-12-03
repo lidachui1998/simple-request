@@ -51,58 +51,86 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      */
     @Override
     public <T> T create(Class<T> clientInterface) {
-        RestClient restClient = clientInterface.getAnnotation(RestClient.class);
-        if (restClient == null) {
-            throw new IllegalArgumentException(
-                    clientInterface.getName() + " is not annotated with @RestClient");
-        }
+        RestClient restClient = validateRestClientAnnotation(clientInterface);
         String baseUrl = getBaseUrl(restClient.propertyKey(), restClient.baseUrl());
-        // 获取自定义的校验器
         ResponseValidator responseValidator = getResponseValidator(restClient);
-
         Serializer serializer = getSerializer(restClient);
-        // 使用 CGLIB 创建代理对象
+
         Enhancer enhancer = new Enhancer();
         enhancer.setSuperclass(clientInterface);
-        enhancer.setCallback(
-                (MethodInterceptor)
-                        (obj, method, args, proxy) -> {
-                            RestRequest restRequest = method.getAnnotation(RestRequest.class);
-                            if (restRequest != null) {
-                                Request request =
-                                        requestBuilder.buildRequest(method, args, baseUrl);
-                                // 获取验证提供器
-                                addAuth(clientInterface, method, request);
+        enhancer.setCallback(createMethodInterceptor(clientInterface, baseUrl, responseValidator, serializer));
 
-                                request.setSerializer(serializer);
-                                String beanName = restClient.clientType().getBeanName();
-                                HttpClientHandler httpClientHandler =
-                                        getHttpClientHandler(beanName);
-
-                                // 检查是否需要重试
-                                Retry retry = method.getAnnotation(Retry.class);
-                                if (retry != null) {
-                                    return retryRequest(
-                                            httpClientHandler,
-                                            request,
-                                            responseValidator,
-                                            retry,
-                                            method,
-                                            args);
-                                }
-                                // 发送请求并获取响应
-                                return sendRequest(
-                                        httpClientHandler,
-                                        request,
-                                        responseValidator,
-                                        method,
-                                        args);
-                            }
-                            return proxy.invokeSuper(obj, args);
-                        });
-
-        // 创建代理对象
         return (T) enhancer.create();
+    }
+
+    /**
+     * 验证客户端接口是否有RestClient注解
+     *
+     * @param clientInterface 客户端接口类
+     * @return RestClient注解
+     * @throws IllegalArgumentException 如果没有RestClient注解
+     */
+    private <T> RestClient validateRestClientAnnotation(Class<T> clientInterface) {
+        RestClient restClient = clientInterface.getAnnotation(RestClient.class);
+        if (restClient == null) {
+            throw new IllegalArgumentException(clientInterface.getName() + " is not annotated with @RestClient");
+        }
+        return restClient;
+    }
+
+    /**
+     * 创建方法拦截器
+     *
+     * @param clientInterface 客户端接口类
+     * @param baseUrl 基础URL
+     * @param responseValidator 响应验证器
+     * @param serializer 序列化器
+     * @return 方法拦截器
+     */
+    private MethodInterceptor createMethodInterceptor(Class<?> clientInterface, String baseUrl, ResponseValidator responseValidator, Serializer serializer) {
+        return (obj, method, args, proxy) -> {
+            RestRequest restRequest = method.getAnnotation(RestRequest.class);
+            if (restRequest != null) {
+                return handleRestRequest(clientInterface, method, args, baseUrl, responseValidator, serializer);
+            }
+            return proxy.invokeSuper(obj, args);
+        };
+    }
+
+    /**
+     * 处理Rest请求
+     *
+     * @param clientInterface 客户端接口类
+     * @param method 方法
+     * @param args 参数
+     * @param baseUrl 基础URL
+     * @param responseValidator 响应验证器
+     * @param serializer 序列化器
+     * @return 请求结果
+     */
+    private Object handleRestRequest(Class<?> clientInterface, Method method, Object[] args, String baseUrl, ResponseValidator responseValidator, Serializer serializer) {
+        Request request = requestBuilder.buildRequest(method, args, baseUrl);
+        addAuth(clientInterface, method, request);
+        request.setSerializer(serializer);
+
+        HttpClientHandler httpClientHandler = getHttpClientHandler(clientInterface);
+        Retry retry = method.getAnnotation(Retry.class);
+
+        if (retry != null) {
+            return retryRequest(httpClientHandler, request, responseValidator, retry, method, args);
+        }
+        return sendRequest(httpClientHandler, request, responseValidator, method, args);
+    }
+
+    /**
+     * 获取HttpClientHandler
+     *
+     * @param clientInterface 客户端接口类
+     * @return HttpClientHandler实例
+     */
+    private HttpClientHandler getHttpClientHandler(Class<?> clientInterface) {
+        String beanName = clientInterface.getAnnotation(RestClient.class).clientType().getBeanName();
+        return getBeanOrCreate(HttpClientHandler.class, beanName);
     }
 
     /**
@@ -117,21 +145,17 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
     }
 
     /**
-     * 重试请求的逻辑
+     * 处理重试请求
      *
-     * @param httpClientHandler http客户端处理程序
-     * @param request 请求
+     * @param httpClientHandler HttpClientHandler实例
+     * @param request 请求对象
      * @param responseValidator 响应验证器
-     * @param retry 重试
-     * @return 对象
+     * @param retry 重试注解
+     * @param method 方法
+     * @param args 参数
+     * @return 请求结果
      */
-    private Object retryRequest(
-            HttpClientHandler httpClientHandler,
-            Request request,
-            ResponseValidator responseValidator,
-            Retry retry,
-            Method method,
-            Object[] args) {
+    private Object retryRequest(HttpClientHandler httpClientHandler, Request request, ResponseValidator responseValidator, Retry retry, Method method, Object[] args) {
         int attempts = 0;
         long delay = retry.delay();
         Class<? extends Throwable>[] retryFor = retry.retryFor();
@@ -141,120 +165,163 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
             try {
                 return sendRequest(httpClientHandler, request, responseValidator, method, args);
             } catch (Throwable e) {
-                // 如果异常是指定的重试异常之一，则重试
                 if (shouldRetry(e, retryFor)) {
                     attempts++;
                     if (attempts >= retry.maxRetries()) {
-                        throw e; // 达到最大重试次数，抛出异常
+                        throw e;
                     }
-
-                    // 根据退避策略调整延迟
-                    if (backoffStrategy == BackoffStrategy.EXPONENTIAL) {
-                        delay *= 2; // 指数退避
-                    }
-
-                    try {
-                        Thread.sleep(delay); // 延迟重试
-                    } catch (InterruptedException interruptedException) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException(interruptedException);
-                    }
+                    delay = adjustDelay(backoffStrategy, delay);
+                    sleepBeforeRetry(delay);
                 } else {
-                    throw e; // 如果异常不在重试列表中，直接抛出
+                    throw e;
                 }
             }
         }
-
         throw new IllegalStateException("Max retries reached for request.");
     }
 
-    private Object sendRequest(
-            HttpClientHandler httpClientHandler,
-            Request request,
-            ResponseValidator responseValidator,
-            Method method,
-            Object[] args) {
-        AbstractResponseBuilder responseBuilder =
-                getResponseBuilder((AbstractHttpClientHandler) httpClientHandler, request);
-        // 发送请求并获取响应
-        if (method.isAnnotationPresent(Async.class)) {
-            checkReturnTypeAndParameters(method, args);
-            Type callbackType = getCallbackGenericType(method);
-            ResponseCallback callback = findCallbackParameter(method, args);
-
-            Retry retry = method.getAnnotation(Retry.class);
-            int maxRetries = retry != null ? retry.maxRetries() : 0;
-            long delay = retry != null ? retry.delay() : 1000;
-            Class<? extends Throwable>[] retryFor =
-                    retry != null ? retry.retryFor() : new Class[] {Exception.class};
-            BackoffStrategy backoffStrategy =
-                    retry != null ? retry.backoff() : BackoffStrategy.FIXED;
-
-            sendRequestWithRetryAsync(
-                    httpClientHandler,
-                    request,
-                    responseValidator,
-                    callback,
-                    responseBuilder,
-                    callbackType,
-                    maxRetries,
-                    delay,
-                    retryFor,
-                    backoffStrategy);
-            return null; // 异步方法不返回值
+    /**
+     * 调整重试延迟
+     *
+     * @param backoffStrategy 退避策略
+     * @param delay 当前延迟
+     * @return 调整后的延迟
+     */
+    private long adjustDelay(BackoffStrategy backoffStrategy, long delay) {
+        if (backoffStrategy == BackoffStrategy.EXPONENTIAL) {
+            delay *= 2;
         }
+        return delay;
+    }
+
+    /**
+     * 在重试前休眠
+     *
+     * @param delay 延迟时间
+     */
+    private void sleepBeforeRetry(long delay) {
+        try {
+            Thread.sleep(delay);
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(interruptedException);
+        }
+    }
+
+    /**
+     * 发送请求
+     *
+     * @param httpClientHandler HttpClientHandler实例
+     * @param request 请求对象
+     * @param responseValidator 响应验证器
+     * @param method 方法
+     * @param args 参数
+     * @return 请求结果
+     */
+    private Object sendRequest(HttpClientHandler httpClientHandler, Request request, ResponseValidator responseValidator, Method method, Object[] args) {
+        AbstractResponseBuilder responseBuilder = getResponseBuilder((AbstractHttpClientHandler) httpClientHandler, request);
+        if (method.isAnnotationPresent(Async.class)) {
+            return handleAsyncRequest(httpClientHandler, request, responseValidator, method, args, responseBuilder);
+        }
+        return handleSyncRequest(httpClientHandler, request, responseValidator, method, args, responseBuilder);
+    }
+
+    /**
+     * 处理异步请求
+     *
+     * @param httpClientHandler HttpClientHandler实例
+     * @param request 请求对象
+     * @param responseValidator 响应验证器
+     * @param method 方法
+     * @param args 参数
+     * @param responseBuilder 响应构建器
+     * @return null
+     */
+    private Object handleAsyncRequest(HttpClientHandler httpClientHandler, Request request, ResponseValidator responseValidator, Method method, Object[] args, AbstractResponseBuilder responseBuilder) {
+        checkReturnTypeAndParameters(method, args);
+        Type callbackType = getCallbackGenericType(method);
+        ResponseCallback callback = findCallbackParameter(method, args);
+
+        Retry retry = method.getAnnotation(Retry.class);
+        int maxRetries = retry != null ? retry.maxRetries() : 0;
+        long delay = retry != null ? retry.delay() : 1000;
+        Class<? extends Throwable>[] retryFor = retry != null ? retry.retryFor() : new Class[]{Exception.class};
+        BackoffStrategy backoffStrategy = retry != null ? retry.backoff() : BackoffStrategy.FIXED;
+
+        sendRequestWithRetryAsync(httpClientHandler, request, responseValidator, callback, responseBuilder, callbackType, maxRetries, delay, retryFor, backoffStrategy);
+        return null;
+    }
+
+    /**
+     * 处理同步请求
+     *
+     * @param httpClientHandler HttpClientHandler实例
+     * @param request 请求对象
+     * @param responseValidator 响应验证器
+     * @param method 方法
+     * @param args 参数
+     * @param responseBuilder 响应构建器
+     * @return 请求结果
+     */
+    private Object handleSyncRequest(HttpClientHandler httpClientHandler, Request request, ResponseValidator responseValidator, Method method, Object[] args, AbstractResponseBuilder responseBuilder) {
         Response response = httpClientHandler.sendRequest(request);
-
-        // 提取响应头并注入到 Map 类型的参数
         returnHeaders(method, args, response);
-
         Object result = responseBuilder.buildResponse(response, method.getGenericReturnType());
         response.setBody(result);
-        // 校验响应
         validateResponse(responseValidator, request, response);
         return result;
     }
 
+    /**
+     * 获取响应构建器
+     *
+     * @param httpClientHandler HttpClientHandler实例
+     * @param request 请求对象
+     * @return 响应构建器
+     */
     @NotNull
-    private static AbstractResponseBuilder getResponseBuilder(
-            AbstractHttpClientHandler httpClientHandler, Request request) {
-        AbstractHttpClientHandler abstractHttpClientHandler = httpClientHandler;
-        AbstractResponseBuilder responseBuilder = abstractHttpClientHandler.getResponseBuilder();
+    private static AbstractResponseBuilder getResponseBuilder(AbstractHttpClientHandler httpClientHandler, Request request) {
+        AbstractResponseBuilder responseBuilder = httpClientHandler.getResponseBuilder();
         responseBuilder.setSerializer(request.getSerializer());
         return responseBuilder;
     }
 
+    /**
+     * 返回响应头
+     *
+     * @param method 方法
+     * @param args 参数
+     * @param response 响应对象
+     */
     private static void returnHeaders(Method method, Object[] args, Response response) {
         Map<String, String> headers = response.getHeaders();
-
-        Map<String, ParamInfo> responseHeaderParams =
-                AnnotationParamExtractor.extractParamsWithType(
-                        method,
-                        args,
-                        ResponseHeader.class,
-                        annotation -> ((ResponseHeader) annotation).name());
+        Map<String, ParamInfo> responseHeaderParams = AnnotationParamExtractor.extractParamsWithType(method, args, ResponseHeader.class, annotation -> ((ResponseHeader) annotation).name());
 
         if (!responseHeaderParams.isEmpty() && !headers.isEmpty()) {
-            Annotation[][] parameterAnnotations = method.getParameterAnnotations();
+            injectHeadersIntoParameters(method, args, headers, responseHeaderParams);
+        }
+    }
 
-            for (int i = 0; i < parameterAnnotations.length; i++) {
-                for (Annotation annotation : parameterAnnotations[i]) {
-                    if (annotation instanceof ResponseHeader && args[i] instanceof Map) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> map = (Map<String, Object>) args[i];
-
-                        // 获取 ResponseHeader 的 name 值
-                        String headerName = ((ResponseHeader) annotation).name();
-
-                        if (headerName == null || headerName.trim().isEmpty()) {
-                            // 如果 name 为空，注入所有头部信息
-                            map.putAll(headers);
-                        } else {
-                            // 注入指定的头部信息
-                            if (headers.containsKey(headerName)) {
-                                map.put(headerName, headers.get(headerName));
-                            }
-                        }
+    /**
+     * 将响应头注入到参数中
+     *
+     * @param method 方法
+     * @param args 参数
+     * @param headers 响应头
+     * @param responseHeaderParams 响应头参数
+     */
+    private static void injectHeadersIntoParameters(Method method, Object[] args, Map<String, String> headers, Map<String, ParamInfo> responseHeaderParams) {
+        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
+        for (int i = 0; i < parameterAnnotations.length; i++) {
+            for (Annotation annotation : parameterAnnotations[i]) {
+                if (annotation instanceof ResponseHeader && args[i] instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> map = (Map<String, Object>) args[i];
+                    String headerName = ((ResponseHeader) annotation).name();
+                    if (headerName == null || headerName.trim().isEmpty()) {
+                        map.putAll(headers);
+                    } else if (headers.containsKey(headerName)) {
+                        map.put(headerName, headers.get(headerName));
                     }
                 }
             }
@@ -264,9 +331,9 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
     /**
      * 判断是否应该重试
      *
-     * @param throwable 可投掷
-     * @param retryFor 重试
-     * @return boolean
+     * @param throwable 异常
+     * @param retryFor 重试的异常类型
+     * @return 是否应该重试
      */
     private boolean shouldRetry(Throwable throwable, Class<? extends Throwable>[] retryFor) {
         for (Class<? extends Throwable> retryException : retryFor) {
@@ -278,16 +345,16 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
     }
 
     /**
-     * 添加身份验证
+     * 添加认证信息到请求中
      *
-     * @param clientInterface 客户端界面
+     * @param clientInterface 客户端接口类
      * @param method 方法
-     * @param request 请求
+     * @param request 请求对象
      */
     private <T> void addAuth(Class<T> clientInterface, Method method, Request request) {
         Auth auth = method.getAnnotation(Auth.class);
         if (auth == null) {
-            auth = clientInterface.getAnnotation(Auth.class); // 尝试从接口级别获取
+            auth = clientInterface.getAnnotation(Auth.class);
         }
         if (auth != null) {
             AuthProvider authProvider = getBeanOrCreate(auth.provider(), null);
@@ -295,6 +362,13 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         }
     }
 
+    /**
+     * 获取或创建Bean实例
+     *
+     * @param beanClass Bean类
+     * @param beanName Bean名称
+     * @return Bean实例
+     */
     private <T> T getBeanOrCreate(Class<T> beanClass, String beanName) {
         if (!SpringUtil.isSpringContextActive()) {
             return createInstance(beanClass);
@@ -313,6 +387,12 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         }
     }
 
+    /**
+     * 创建Bean实例
+     *
+     * @param beanClass Bean类
+     * @return Bean实例
+     */
     private <T> T createInstance(Class<T> beanClass) {
         try {
             return beanClass.getDeclaredConstructor().newInstance();
@@ -321,10 +401,22 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         }
     }
 
+    /**
+     * 获取响应验证器
+     *
+     * @param restClient RestClient注解
+     * @return 响应验证器
+     */
     private ResponseValidator getResponseValidator(RestClient restClient) {
         return getBeanOrCreate(restClient.responseValidator(), null);
     }
 
+    /**
+     * 获取序列化器
+     *
+     * @param restClient RestClient注解
+     * @return 序列化器
+     */
     private Serializer getSerializer(RestClient restClient) {
         return getBeanOrCreate(restClient.serializer(), null);
     }
@@ -333,35 +425,38 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 验证响应
      *
      * @param responseValidator 响应验证器
-     * @param response 响应
-     * @param request 请求信息
+     * @param request 请求对象
+     * @param response 响应对象
      */
-    private void validateResponse(
-            ResponseValidator responseValidator, Request request, Response response) {
+    private void validateResponse(ResponseValidator responseValidator, Request request, Response response) {
         ValidationResult validationResult = responseValidator.validate(response);
         if (!validationResult.isValid()) {
-            // 调用用户自定义的校验失败处理方法
             responseValidator.onFailure(request, response, validationResult);
         }
     }
 
-    private HttpClientHandler getHttpClientHandler(String beanName) {
-        return getBeanOrCreate(HttpClientHandler.class, beanName);
-    }
-
+    /**
+     * 检查返回类型和参数
+     *
+     * @param method 方法
+     * @param args 参数
+     */
     private void checkReturnTypeAndParameters(Method method, Object[] args) {
         if (method.getReturnType() != void.class) {
-            throw new IllegalStateException(
-                    "Async method " + method.getName() + " must return void");
+            throw new IllegalStateException("Async method " + method.getName() + " must return void");
         }
         if (findCallbackParameter(method, args) == null) {
-            throw new IllegalStateException(
-                    "Async method "
-                            + method.getName()
-                            + " must have a ResponseCallback parameter annotated with @Callback");
+            throw new IllegalStateException("Async method " + method.getName() + " must have a ResponseCallback parameter annotated with @Callback");
         }
     }
 
+    /**
+     * 查找回调参数
+     *
+     * @param method 方法
+     * @param args 参数
+     * @return 回调参数
+     */
     private ResponseCallback findCallbackParameter(Method method, Object[] args) {
         Parameter[] parameters = method.getParameters();
         for (int i = 0; i < parameters.length; i++) {
@@ -372,6 +467,12 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         return null;
     }
 
+    /**
+     * 获取回调的泛型类型
+     *
+     * @param method 方法
+     * @return 泛型类型
+     */
     private Type getCallbackGenericType(Method method) {
         Parameter[] parameters = method.getParameters();
         for (Parameter parameter : parameters) {
@@ -385,98 +486,58 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         throw new IllegalStateException("No generic type found for ResponseCallback");
     }
 
-    private void sendRequestWithRetryAsync(
-            HttpClientHandler httpClientHandler,
-            Request request,
-            ResponseValidator responseValidator,
-            ResponseCallback callback,
-            AbstractResponseBuilder responseBuilder,
-            Type callbackType,
-            int maxRetries,
-            long delay,
-            Class<? extends Throwable>[] retryFor,
-            BackoffStrategy backoffStrategy) {
-
+    /**
+     * 异步发送请求并重试
+     *
+     * @param httpClientHandler HttpClientHandler实例
+     * @param request 请求对象
+     * @param responseValidator 响应验证器
+     * @param callback 回调
+     * @param responseBuilder 响应构建器
+     * @param callbackType 回调类型
+     * @param maxRetries 最大重试次数
+     * @param delay 延迟
+     * @param retryFor 重试的异常类型
+     * @param backoffStrategy 退避策略
+     */
+    private void sendRequestWithRetryAsync(HttpClientHandler httpClientHandler, Request request, ResponseValidator responseValidator, ResponseCallback callback, AbstractResponseBuilder responseBuilder, Type callbackType, int maxRetries, long delay, Class<? extends Throwable>[] retryFor, BackoffStrategy backoffStrategy) {
         CompletableFuture<Response> future = httpClientHandler.sendRequestAsync(request);
 
-        future.thenAccept(
-                        response -> {
-                            try {
-                                Object result =
-                                        responseBuilder.buildResponse(response, callbackType);
-                                response.setBody(result);
-                                validateResponse(responseValidator, request, response);
-                                callback.onSuccess(result);
-                            } catch (Throwable t) {
-                                handleFailure(
-                                        t,
-                                        callback,
-                                        maxRetries,
-                                        delay,
-                                        retryFor,
-                                        backoffStrategy,
-                                        httpClientHandler,
-                                        request,
-                                        responseValidator,
-                                        callbackType,
-                                        responseBuilder);
-                            }
-                        })
-                .exceptionally(
-                        throwable -> {
-                            handleFailure(
-                                    throwable,
-                                    callback,
-                                    maxRetries,
-                                    delay,
-                                    retryFor,
-                                    backoffStrategy,
-                                    httpClientHandler,
-                                    request,
-                                    responseValidator,
-                                    callbackType,
-                                    responseBuilder);
-                            return null;
-                        });
+        future.thenAccept(response -> {
+            try {
+                Object result = responseBuilder.buildResponse(response, callbackType);
+                response.setBody(result);
+                validateResponse(responseValidator, request, response);
+                callback.onSuccess(result);
+            } catch (Throwable t) {
+                handleFailure(t, callback, maxRetries, delay, retryFor, backoffStrategy, httpClientHandler, request, responseValidator, callbackType, responseBuilder);
+            }
+        }).exceptionally(throwable -> {
+            handleFailure(throwable, callback, maxRetries, delay, retryFor, backoffStrategy, httpClientHandler, request, responseValidator, callbackType, responseBuilder);
+            return null;
+        });
     }
 
-    private void handleFailure(
-            Throwable throwable,
-            ResponseCallback callback,
-            int maxRetries,
-            long delay,
-            Class<? extends Throwable>[] retryFor,
-            BackoffStrategy backoffStrategy,
-            HttpClientHandler httpClientHandler,
-            Request request,
-            ResponseValidator responseValidator,
-            Type callbackType,
-            AbstractResponseBuilder responseBuilder) {
-
+    /**
+     * 处理请求失败
+     *
+     * @param throwable 异常
+     * @param callback 回调
+     * @param maxRetries 最大重试次数
+     * @param delay 延迟
+     * @param retryFor 重试的异常类型
+     * @param backoffStrategy 退避策略
+     * @param httpClientHandler HttpClientHandler实例
+     * @param request 请求对象
+     * @param responseValidator 响应验证器
+     * @param callbackType 回调类型
+     * @param responseBuilder 响应构建器
+     */
+    private void handleFailure(Throwable throwable, ResponseCallback callback, int maxRetries, long delay, Class<? extends Throwable>[] retryFor, BackoffStrategy backoffStrategy, HttpClientHandler httpClientHandler, Request request, ResponseValidator responseValidator, Type callbackType, AbstractResponseBuilder responseBuilder) {
         if (maxRetries > 0 && shouldRetry(throwable, retryFor)) {
-            if (backoffStrategy == BackoffStrategy.EXPONENTIAL) {
-                delay *= 2;
-            }
-
-            try {
-                Thread.sleep(delay);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                callback.onFailure(e);
-                return;
-            }
-
-            sendRequestWithRetryAsync(
-                    httpClientHandler,
-                    request,
-                    responseValidator,
-                    callback,
-                    responseBuilder,
-                    callbackType,
-                    maxRetries - 1,
-                    delay,
-                    retryFor,
-                    backoffStrategy);
+            delay = adjustDelay(backoffStrategy, delay);
+            sleepBeforeRetry(delay);
+            sendRequestWithRetryAsync(httpClientHandler, request, responseValidator, callback, responseBuilder, callbackType, maxRetries - 1, delay, retryFor, backoffStrategy);
         } else {
             callback.onFailure(throwable);
         }
