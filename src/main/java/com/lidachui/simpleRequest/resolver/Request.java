@@ -1,5 +1,7 @@
 package com.lidachui.simpleRequest.resolver;
 
+import com.lidachui.simpleRequest.entity.QueryEntity;
+import java.util.List;
 import java.util.Map;
 
 import com.lidachui.simpleRequest.serialize.Serializer;
@@ -33,4 +35,7 @@ public class Request {
 
     /** 序列化器 */
     private Serializer serializer;
+
+    /** 查询参数实体 */
+    private List<QueryEntity> queryEntities;
 }

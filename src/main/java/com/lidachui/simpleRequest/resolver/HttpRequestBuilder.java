@@ -1,6 +1,7 @@
 package com.lidachui.simpleRequest.resolver;
 
 import com.lidachui.simpleRequest.annotation.*;
+import com.lidachui.simpleRequest.entity.QueryEntity;
 import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
 import com.lidachui.simpleRequest.util.ParamInfo;
 import com.lidachui.simpleRequest.util.RequestAnnotationParser;
@@ -37,9 +38,9 @@ public class HttpRequestBuilder implements RequestBuilder {
                 getParams(method, args);
 
         // 构建 URL 和 Query 参数
-
+        List<QueryEntity> queryEntities = new ArrayList<>();
         Pair<String, Map<String, String>> urlPair =
-                constructUrl(baseUrl, restRequest, methodParams);
+                constructUrl(baseUrl, restRequest, methodParams, queryEntities);
         String fullUrl = urlPair.getKey();
         // 构建 Header 参数
         Map<String, String> headers = constructHeaders(restRequest.headers(), methodParams);
@@ -54,6 +55,7 @@ public class HttpRequestBuilder implements RequestBuilder {
         request.setHeaders(headers);
         request.setBody(body);
         request.setQueryParams(urlPair.getValue());
+        request.setQueryEntities(queryEntities);
         logRequestDetails(request);
         return request;
     }
@@ -75,7 +77,8 @@ public class HttpRequestBuilder implements RequestBuilder {
     private Pair<String, Map<String, String>> constructUrl(
             String baseUrl,
             RestRequest restRequest,
-            Map<Class<? extends Annotation>, Map<String, ParamInfo>> params) {
+            Map<Class<? extends Annotation>, Map<String, ParamInfo>> params,
+            List<QueryEntity> queryEntities) {
 
         // 替换路径变量
         Set<String> consumedKeys = new HashSet<>();
@@ -90,7 +93,8 @@ public class HttpRequestBuilder implements RequestBuilder {
                 mergeQueryParams(
                         restRequest.queryParams(),
                         params.getOrDefault(QueryParam.class, Collections.emptyMap()),
-                        consumedKeys);
+                        consumedKeys,
+                        queryEntities);
 
         Map<String, ParamInfo> hostParams = params.getOrDefault(Host.class, Collections.emptyMap());
         AtomicReference<String> host = new AtomicReference<>(baseUrl);
@@ -103,27 +107,63 @@ public class HttpRequestBuilder implements RequestBuilder {
                     });
         }
         // 构建完整 URL
-        return new Pair<>(buildUrl(host.get(), path, queryParams), queryParams);
+        return new Pair<>(buildUrl(host.get(), path, queryEntities), queryParams);
     }
 
     private Map<String, String> mergeQueryParams(
             String[] staticQueryParams,
             Map<String, ParamInfo> dynamicParams,
-            Set<String> consumedKeys) {
+            Set<String> consumedKeys,
+            List<QueryEntity> queryEntities) {
 
         // 解析静态 Query 参数
         Map<String, String> queryParams =
                 RequestAnnotationParser.parseQueryParams(staticQueryParams);
 
         // 替换占位符
-        queryParams.replaceAll(
-                (key, value) -> replacePlaceholders(value, dynamicParams, consumedKeys));
+        for (Map.Entry<String, String> entry : queryParams.entrySet()) {
+            String value = entry.getValue();
+
+            // 替换 value 的占位符
+            String replacedValue = replacePlaceholders(value, dynamicParams, consumedKeys);
+
+            // 更新 map 中的 value
+            entry.setValue(replacedValue);
+            queryEntities.add(new QueryEntity(entry.getKey(), entry.getValue()));
+        }
 
         // 添加未消费的动态参数
         dynamicParams.forEach(
                 (key, paramInfo) -> {
                     if (!consumedKeys.contains(key)) {
-                        queryParams.putIfAbsent(key, paramInfo.getValue().toString());
+                        Object value = paramInfo.getValue();
+
+                        if (value instanceof Collection) {
+                            Collection<?> collection = (Collection<?>) value;
+
+                            if (!collection.isEmpty()) {
+                                collection.forEach(
+                                        item -> {
+                                            String stringValue = item.toString();
+                                            queryParams.putIfAbsent(key, stringValue);
+
+                                            QueryEntity queryEntity = new QueryEntity();
+                                            queryEntity.setName(key);
+                                            queryEntity.setValue(stringValue);
+                                            queryEntities.add(queryEntity);
+                                        });
+                            } else {
+                                queryParams.putIfAbsent(key, "");
+                            }
+                        } else if (value != null) {
+                            String stringValue = value.toString();
+                            queryParams.putIfAbsent(key, stringValue);
+
+                            QueryEntity queryEntity = new QueryEntity();
+                            queryEntity.setName(key);
+                            queryEntity.setValue(stringValue);
+                            queryEntities.add(queryEntity);
+                        }
                     }
                 });
 
@@ -177,10 +217,27 @@ public class HttpRequestBuilder implements RequestBuilder {
         while (matcher.find()) {
             result.append(template, cursor, matcher.start());
             String key = matcher.group(1);
-            String replacement =
-                    params.containsKey(key)
-                            ? params.get(key).getValue().toString()
-                            : matcher.group();
+            String replacement = "";
+            if (params.containsKey(key)) {
+                ParamInfo paramInfo = params.get(key);
+                Object value = paramInfo.getValue();
+
+                if (value instanceof Collection) {
+                    Collection<?> collection = (Collection<?>) value;
+                    if (!collection.isEmpty()) {
+                        replacement = collection.iterator().next().toString();
+                    } else {
+                        replacement = ""; // 或者根据需要处理空集合
+                    }
+                } else if (value != null) {
+                    replacement = value.toString();
+                } else {
+                    replacement = ""; // 处理 null 值的情况
+                }
+            } else {
+                replacement = matcher.group();
+            }
+
             result.append(replacement);
 
             if (params.containsKey(key)) {
@@ -193,15 +250,15 @@ public class HttpRequestBuilder implements RequestBuilder {
         return result.toString();
     }
 
-    private String buildUrl(String baseUrl, String path, Map<String, String> queryParams) {
+    private String buildUrl(String baseUrl, String path, List<QueryEntity> queryEntities) {
         StringBuilder urlBuilder = new StringBuilder(baseUrl).append(path);
-        if (!queryParams.isEmpty()) {
-            urlBuilder
-                    .append("?")
-                    .append(
-                            queryParams.entrySet().stream()
-                                    .map(entry -> entry.getKey() + "=" + entry.getValue())
-                                    .collect(Collectors.joining("&")));
+        if (!queryEntities.isEmpty()) {
+            urlBuilder.append("?");
+            // 使用 queryEntities 来构建查询参数
+            urlBuilder.append(
+                    queryEntities.stream()
+                            .map(entity -> entity.getName() + "=" + entity.getValue())
+                            .collect(Collectors.joining("&")));
         }
         return urlBuilder.toString();
     }
