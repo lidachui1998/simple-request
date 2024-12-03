@@ -22,6 +22,7 @@ import org.springframework.cglib.proxy.MethodInterceptor;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
+import org.springframework.util.StringUtils;
 
 /**
  * HttpClientProxyFactory
@@ -33,7 +34,7 @@ import java.util.*;
 @Slf4j
 public class HttpClientProxyFactory extends AbstractClientProxyFactory {
 
-    private final RequestBuilder requestBuilder = new HttpRequestBuilder(); // 默认实现
+    private final RequestBuilder requestBuilder = new HttpRequestBuilder();
 
     /**
      * 创建代理对象
@@ -46,7 +47,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         RestClient restClient = clientInterface.getAnnotation(RestClient.class);
         if (restClient == null) {
             throw new IllegalArgumentException(
-                    clientInterface.getName() + " is not annotated with @RestClient");
+                clientInterface.getName() + " is not annotated with @RestClient");
         }
         String baseUrl = getBaseUrl(restClient.propertyKey(), restClient.baseUrl());
         // 获取自定义的校验器
@@ -57,43 +58,41 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         Enhancer enhancer = new Enhancer();
         enhancer.setSuperclass(clientInterface);
         enhancer.setCallback(
-                (MethodInterceptor)
-                        (obj, method, args, proxy) -> {
-                            RestRequest restRequest = method.getAnnotation(RestRequest.class);
-                            if (restRequest != null) {
-                                Request request =
-                                        requestBuilder.buildRequest(
-                                                method, args, baseUrl, restRequest);
-                                // 获取验证提供器
-                                addAuth(clientInterface, method, request);
+            (MethodInterceptor)
+                (obj, method, args, proxy) -> {
+                    RestRequest restRequest = method.getAnnotation(RestRequest.class);
+                    if (restRequest != null) {
+                        Request request =
+                            requestBuilder.buildRequest(method, args, baseUrl);
+                        // 获取验证提供器
+                        addAuth(clientInterface, method, request);
 
-                                request.setSerializer(serializer);
-                                String beanName = restClient.clientType().getBeanName();
-                                HttpClientHandler httpClientHandler =
-                                        getApplicationContext()
-                                                .getBean(beanName, HttpClientHandler.class);
+                        request.setSerializer(serializer);
+                        String beanName = restClient.clientType().getBeanName();
+                        HttpClientHandler httpClientHandler =
+                            getHttpClientHandler(beanName);
 
-                                // 检查是否需要重试
-                                Retry retry = method.getAnnotation(Retry.class);
-                                if (retry != null) {
-                                    return retryRequest(
-                                            httpClientHandler,
-                                            request,
-                                            responseValidator,
-                                            retry,
-                                            method,
-                                            args);
-                                }
-                                // 发送请求并获取响应
-                                return sendRequest(
-                                        httpClientHandler,
-                                        request,
-                                        responseValidator,
-                                        method,
-                                        args);
-                            }
-                            return proxy.invokeSuper(obj, args);
-                        });
+                        // 检查是否需要重试
+                        Retry retry = method.getAnnotation(Retry.class);
+                        if (retry != null) {
+                            return retryRequest(
+                                httpClientHandler,
+                                request,
+                                responseValidator,
+                                retry,
+                                method,
+                                args);
+                        }
+                        // 发送请求并获取响应
+                        return sendRequest(
+                            httpClientHandler,
+                            request,
+                            responseValidator,
+                            method,
+                            args);
+                    }
+                    return proxy.invokeSuper(obj, args);
+                });
 
         // 创建代理对象
         return (T) enhancer.create();
@@ -120,12 +119,12 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * @return 对象
      */
     private Object retryRequest(
-            HttpClientHandler httpClientHandler,
-            Request request,
-            ResponseValidator responseValidator,
-            Retry retry,
-            Method method,
-            Object[] args) {
+        HttpClientHandler httpClientHandler,
+        Request request,
+        ResponseValidator responseValidator,
+        Retry retry,
+        Method method,
+        Object[] args) {
         int attempts = 0;
         long delay = retry.delay();
         Class<? extends Throwable>[] retryFor = retry.retryFor();
@@ -163,11 +162,11 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
     }
 
     private Object sendRequest(
-            HttpClientHandler httpClientHandler,
-            Request request,
-            ResponseValidator responseValidator,
-            Method method,
-            Object[] args) {
+        HttpClientHandler httpClientHandler,
+        Request request,
+        ResponseValidator responseValidator,
+        Method method,
+        Object[] args) {
         // 发送请求并获取响应
         Response response = httpClientHandler.sendRequest(request);
 
@@ -175,7 +174,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         returnHeaders(method, args, response);
 
         AbstractHttpClientHandler abstractHttpClientHandler =
-                (AbstractHttpClientHandler) httpClientHandler;
+            (AbstractHttpClientHandler) httpClientHandler;
         AbstractResponseBuilder responseBuilder = abstractHttpClientHandler.getResponseBuilder();
         responseBuilder.setSerializer(request.getSerializer());
         Object result = responseBuilder.buildResponse(response, method.getGenericReturnType());
@@ -189,11 +188,11 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         Map<String, String> headers = response.getHeaders();
 
         Map<String, ParamInfo> responseHeaderParams =
-                AnnotationParamExtractor.extractParamsWithType(
-                        method,
-                        args,
-                        ResponseHeader.class,
-                        annotation -> ((ResponseHeader) annotation).name());
+            AnnotationParamExtractor.extractParamsWithType(
+                method,
+                args,
+                ResponseHeader.class,
+                annotation -> ((ResponseHeader) annotation).name());
 
         if (!responseHeaderParams.isEmpty() && !headers.isEmpty()) {
             Annotation[][] parameterAnnotations = method.getParameterAnnotations();
@@ -251,58 +250,43 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
             auth = clientInterface.getAnnotation(Auth.class); // 尝试从接口级别获取
         }
         if (auth != null) {
-            AuthProvider authProvider;
-            try {
-                authProvider = getApplicationContext().getBean(auth.provider());
-            } catch (NoSuchBeanDefinitionException e) {
-                log.error(
-                        "No bean of type AuthProvider found for auth annotation in class "
-                                + clientInterface.getName(),
-                        e);
-                try {
-                    authProvider = auth.provider().getDeclaredConstructor().newInstance();
-                } catch (Exception ex) {
-                    throw new RuntimeException(ex);
-                }
-            }
+            AuthProvider authProvider = getBeanOrCreate(auth.provider(), null);
             authProvider.apply(request);
         }
     }
 
-    /**
-     * 获取响应验证器
-     *
-     * @param restClient 休息客户端
-     * @return {@code ResponseValidator }
-     */
-    private ResponseValidator getResponseValidator(RestClient restClient) {
-        return getApplicationContext().getBean(restClient.responseValidator());
+    private <T> T getBeanOrCreate(Class<T> beanClass, String beanName) {
+        if (!SpringUtil.isSpringContextActive()) {
+            return createInstance(beanClass);
+        }
+        try {
+            if (StringUtils.hasLength(beanName)) {
+                return getApplicationContext().getBean(beanName, beanClass);
+            } else {
+                return getApplicationContext().getBean(beanClass);
+            }
+        } catch (NoSuchBeanDefinitionException e) {
+            log.error("No bean of type " + beanClass.getName() + " found.", e);
+            T instance = createInstance(beanClass);
+            SpringUtil.registerBean(getApplicationContext(), beanClass);
+            return instance;
+        }
     }
 
-    /**
-     * 获取序列化器
-     *
-     * @param restClient 休息客户端
-     * @return Serializer
-     */
-    private Serializer getSerializer(RestClient restClient) {
-        Serializer serializer;
-        Class<? extends Serializer> serializerClass = restClient.serializer();
+    private <T> T createInstance(Class<T> beanClass) {
         try {
-            serializer = getApplicationContext().getBean(serializerClass);
-        } catch (NoSuchBeanDefinitionException e) {
-            log.error(
-                    "No bean of type AuthProvider found for auth annotation in class "
-                            + restClient.serializer().getTypeName(),
-                    e);
-            try {
-                serializer = serializerClass.getDeclaredConstructor().newInstance();
-                SpringUtil.registerBean(getApplicationContext(), serializerClass);
-            } catch (Exception ex) {
-                throw new RuntimeException(ex);
-            }
+            return beanClass.getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create instance of " + beanClass.getName(), e);
         }
-        return serializer;
+    }
+
+    private ResponseValidator getResponseValidator(RestClient restClient) {
+        return getBeanOrCreate(restClient.responseValidator(), null);
+    }
+
+    private Serializer getSerializer(RestClient restClient) {
+        return getBeanOrCreate(restClient.serializer(), null);
     }
 
     /**
@@ -313,11 +297,15 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * @param request 请求信息
      */
     private void validateResponse(
-            ResponseValidator responseValidator, Request request, Response response) {
+        ResponseValidator responseValidator, Request request, Response response) {
         ValidationResult validationResult = responseValidator.validate(response);
         if (!validationResult.isValid()) {
             // 调用用户自定义的校验失败处理方法
             responseValidator.onFailure(request, response, validationResult);
         }
+    }
+
+    private HttpClientHandler getHttpClientHandler(String beanName) {
+        return getBeanOrCreate(HttpClientHandler.class, beanName);
     }
 }
