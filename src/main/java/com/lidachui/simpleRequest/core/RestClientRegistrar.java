@@ -1,7 +1,6 @@
 package com.lidachui.simpleRequest.core;
 
 import com.lidachui.simpleRequest.annotation.EnableRestClients;
-import com.lidachui.simpleRequest.annotation.HessianClient;
 import com.lidachui.simpleRequest.annotation.RestClient;
 import com.lidachui.simpleRequest.autoconfigure.RestRequestConfig;
 
@@ -119,7 +118,7 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
     private List<Class<?>> scanClassesWithAnnotation(String basePackage) {
         try {
             return ClassScanner.getClassesWithAnnotations(
-                    basePackage, RestClient.class, HessianClient.class);
+                    basePackage, RestClient.class);
         } catch (Exception e) {
             logger.error("Failed to scan package: {}", basePackage, e);
             return Collections.emptyList();
@@ -164,12 +163,6 @@ public class RestClientRegistrar implements ApplicationContextAware, BeanFactory
      */
     private String determineBeanName(Class<?> clazz) {
         RestClient restClientAnnotation = clazz.getAnnotation(RestClient.class);
-        HessianClient hessianClientAnnotation = clazz.getAnnotation(HessianClient.class);
-        if (hessianClientAnnotation != null) {
-            return !hessianClientAnnotation.name().isEmpty()
-                    ? hessianClientAnnotation.name()
-                    : generateBeanName(clazz);
-        }
         if (restClientAnnotation != null) {
             return !restClientAnnotation.name().isEmpty()
                     ? restClientAnnotation.name()
