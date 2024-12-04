@@ -16,7 +16,6 @@ import com.lidachui.simpleRequest.validator.ValidationResult;
 
 import lombok.extern.slf4j.Slf4j;
 
-import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.cglib.proxy.Enhancer;
 import org.springframework.cglib.proxy.MethodInterceptor;
@@ -279,7 +278,6 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * @param request 请求对象
      * @return 响应构建器
      */
-    @NotNull
     private static AbstractResponseBuilder getResponseBuilder(AbstractHttpClientHandler httpClientHandler, Request request) {
         AbstractResponseBuilder responseBuilder = httpClientHandler.getResponseBuilder();
         responseBuilder.setSerializer(request.getSerializer());
