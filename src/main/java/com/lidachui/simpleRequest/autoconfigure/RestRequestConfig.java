@@ -1,5 +1,7 @@
 package com.lidachui.simpleRequest.autoconfigure;
 
+import com.lidachui.simpleRequest.cache.LocalCacheStrategy;
+import com.lidachui.simpleRequest.cache.RedisCacheStrategy;
 import com.lidachui.simpleRequest.core.HttpClientProxyFactory;
 import com.lidachui.simpleRequest.filter.DefaultRequestFilter;
 import com.lidachui.simpleRequest.handler.OkHttpHandler;
@@ -48,5 +50,15 @@ public class RestRequestConfig {
     @Bean(name = "simpleRequestSpringUtil")
     public SpringUtil springUtil() {
         return new SpringUtil();
+    }
+
+    @Bean
+    public LocalCacheStrategy localCacheStrategy() {
+        return new LocalCacheStrategy();
+    }
+
+    @Bean
+    public RedisCacheStrategy redisCacheStrategy() {
+        return new RedisCacheStrategy();
     }
 }

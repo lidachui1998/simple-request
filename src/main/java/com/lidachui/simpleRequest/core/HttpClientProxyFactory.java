@@ -3,6 +3,7 @@ package com.lidachui.simpleRequest.core;
 import com.lidachui.simpleRequest.annotation.*;
 import com.lidachui.simpleRequest.async.ResponseCallback;
 import com.lidachui.simpleRequest.auth.AuthProvider;
+import com.lidachui.simpleRequest.cache.CacheStrategy;
 import com.lidachui.simpleRequest.constants.BackoffStrategy;
 import com.lidachui.simpleRequest.handler.AbstractHttpClientHandler;
 import com.lidachui.simpleRequest.handler.HttpClientHandler;
@@ -94,22 +95,50 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
             ResponseValidator responseValidator,
             Serializer serializer) {
         return (obj, method, args, proxy) -> {
+            RestRequest restRequest = getRestRequest(method);
+            if (restRequest == null) {
+                return proxy.invokeSuper(obj, args);
+            }
             // 检查是否有 @Mock 注解
             Mock mockAnnotation = method.getAnnotation(Mock.class);
             if (mockAnnotation != null && !isVoidReturnType(method)) {
-                Class<? extends MockGenerator> mockedGeneratorClass = mockAnnotation.mockGenerator();
+                Class<? extends MockGenerator> mockedGeneratorClass =
+                        mockAnnotation.mockGenerator();
                 MockGenerator mockGenerator = getBeanOrCreate(mockedGeneratorClass, null);
                 Type returnType = method.getGenericReturnType();
                 return mockGenerator.generate(returnType);
             }
 
-            RestRequest restRequest = method.getAnnotation(RestRequest.class);
-            if (restRequest != null) {
-                return handleRestRequest(
-                        clientInterface, method, args, baseUrl, responseValidator, serializer);
+            Cacheable cacheable = method.getAnnotation(Cacheable.class);
+            if (cacheable != null) {
+                try {
+                    CacheStrategy cacheStrategy = getBeanOrCreate(cacheable.strategy(), null);
+                    String cacheKey = generateCacheKey(method, args);
+                    Object cachedResult = cacheStrategy.get(cacheKey);
+                    if (cachedResult != null) {
+                        return cachedResult;
+                    }
+                    Object result =
+                            handleRestRequest(
+                                    clientInterface,
+                                    method,
+                                    args,
+                                    baseUrl,
+                                    responseValidator,
+                                    serializer);
+                    cacheStrategy.put(cacheKey, result, cacheable.ttl());
+                    return result;
+                } catch (IllegalStateException e) {
+                    log.error("Caching is disabled: {}", e.getMessage());
+                }
             }
-            return proxy.invokeSuper(obj, args);
+            return handleRestRequest(
+                    clientInterface, method, args, baseUrl, responseValidator, serializer);
         };
+    }
+
+    private static RestRequest getRestRequest(Method method) {
+        return method.getAnnotation(RestRequest.class);
     }
 
     /**
@@ -374,9 +403,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * @param headers 响应头
      */
     private static void injectHeadersIntoParameters(
-            Method method,
-            Object[] args,
-            Map<String, String> headers) {
+            Method method, Object[] args, Map<String, String> headers) {
         Annotation[][] parameterAnnotations = method.getParameterAnnotations();
         for (int i = 0; i < parameterAnnotations.length; i++) {
             for (Annotation annotation : parameterAnnotations[i]) {
@@ -674,5 +701,15 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
     public static boolean isVoidReturnType(Method method) {
         Type returnType = method.getGenericReturnType();
         return Void.TYPE.equals(returnType);
+    }
+
+    private static final String FRAMEWORK_IDENTIFIER = "simple-request:cache"; // 框架特有标识
+
+    public static String generateCacheKey(Method method, Object[] args) {
+        String className = method.getDeclaringClass().getName(); // 获取类的全限定名
+        String methodName = method.getName(); // 获取方法名
+        String argsString = Arrays.toString(args); // 获取参数的字符串表示
+        // 生成唯一的缓存键
+        return FRAMEWORK_IDENTIFIER + ":" + className + ":" + methodName + ":" + argsString;
     }
 }
