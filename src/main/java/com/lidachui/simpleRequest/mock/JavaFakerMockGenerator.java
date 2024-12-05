@@ -21,6 +21,9 @@ public class JavaFakerMockGenerator implements MockGenerator {
 
     private static final Faker faker = new Faker(new Locale("zh-CN"));
 
+    private static final int MIN_COLLECTION_SIZE = 1;
+    private static final int MAX_COLLECTION_SIZE = 10;
+
     @Override
     public <T> T generate(Type type) {
         return generateMockData(type);
@@ -73,28 +76,35 @@ public class JavaFakerMockGenerator implements MockGenerator {
             Class<?> rawClass = (Class<?>) rawType;
 
             if (Collection.class.isAssignableFrom(rawClass)) {
-                Type elementType = type.getActualTypeArguments()[0];
-                Collection<Object> collection = new ArrayList<>();
-                for (int i = 0; i < faker.random().nextInt(1, 5); i++) {
-                    collection.add(generateMockData(elementType));
-                }
-                return collection;
+                return generateMockCollection(type.getActualTypeArguments()[0]);
             }
 
             if (Map.class.isAssignableFrom(rawClass)) {
-                Type keyType = type.getActualTypeArguments()[0];
-                Type valueType = type.getActualTypeArguments()[1];
-                Map<Object, Object> map = new HashMap<>();
-                for (int i = 0; i < faker.random().nextInt(1, 5); i++) {
-                    map.put(generateMockData(keyType), generateMockData(valueType));
-                }
-                return map;
+                return generateMockMap(type.getActualTypeArguments()[0], type.getActualTypeArguments()[1]);
             }
 
             return generateMockForCustomGenericClass(rawClass, type.getActualTypeArguments());
         }
 
         return null;
+    }
+
+    private static Collection<Object> generateMockCollection(Type elementType) {
+        Collection<Object> collection = new ArrayList<>();
+        int collectionSize = faker.random().nextInt(MIN_COLLECTION_SIZE, MAX_COLLECTION_SIZE);
+        for (int i = 0; i < collectionSize; i++) {
+            collection.add(generateMockData(elementType));
+        }
+        return collection;
+    }
+
+    private static Map<Object, Object> generateMockMap(Type keyType, Type valueType) {
+        Map<Object, Object> map = new HashMap<>();
+        int mapSize = faker.random().nextInt(MIN_COLLECTION_SIZE, MAX_COLLECTION_SIZE);
+        for (int i = 0; i < mapSize; i++) {
+            map.put(generateMockData(keyType), generateMockData(valueType));
+        }
+        return map;
     }
 
     private static Object generateMockForCustomGenericClass(Class<?> clazz, Type[] genericArguments) {
@@ -142,7 +152,7 @@ public class JavaFakerMockGenerator implements MockGenerator {
                 field.set(instance, value);
             }
             return instance;
-        } catch (Exception e) {
+        } catch (ReflectiveOperationException e) {
             throw new RuntimeException("Failed to generate mock data for class: " + clazz.getName(), e);
         }
     }
@@ -159,48 +169,34 @@ public class JavaFakerMockGenerator implements MockGenerator {
         String lowerCaseFieldName = fieldName.toLowerCase();
 
         if (lowerCaseFieldName.contains("name")) {
-            // 姓名逻辑，支持男女随机生成
             return faker.name().fullName();
         } else if (lowerCaseFieldName.contains("email")) {
-            // 随机生成邮箱
-            return faker.internet().emailAddress();
+            return faker.internet().safeEmailAddress();
         } else if (lowerCaseFieldName.contains("phone") || lowerCaseFieldName.contains("mobile")) {
-            // 中���格式手机号
-            return faker.phoneNumber().cellPhone().replaceAll("[^\\d]", "").substring(0, 11);
+            return faker.phoneNumber().phoneNumber();
         } else if (lowerCaseFieldName.contains("gender")) {
-            // 性别字段生成"男"/"女"
-            return faker.bool().bool() ? "男" : "女";
+            return faker.options().option("男", "女", "其他");
         } else if (lowerCaseFieldName.contains("age")) {
-            // 合理年龄区间
-            return String.valueOf(faker.number().numberBetween(18, 60));
+            return String.valueOf(faker.number().numberBetween(18, 80));
         } else if (lowerCaseFieldName.contains("address")) {
-            // 地址生成更贴近实际
-            return faker.address().fullAddress();
+            return faker.address().streetAddress() + ", " + faker.address().city() + ", " + faker.address().state();
         } else if (lowerCaseFieldName.contains("city")) {
-            // 城市字段
-            return faker.address().city();
+            return faker.address().cityName();
         } else if (lowerCaseFieldName.contains("province")) {
-            // 省份字段
             return faker.address().state();
         } else if (lowerCaseFieldName.contains("company")) {
-            // 公司名称
             return faker.company().name();
         } else if (lowerCaseFieldName.contains("status")) {
-            // 状态字段
-            return faker.options().option("激活", "未激活", "冻结");
+            return faker.options().option("激活", "未激活", "冻结", "待审核");
         } else if (lowerCaseFieldName.contains("date") || lowerCaseFieldName.contains("time")) {
-            // 日期或时间字段
-            return faker.date().birthday().toString();
+            return faker.date().past(3650, TimeUnit.DAYS).toString();
         } else if (lowerCaseFieldName.contains("id")) {
-            // 身份证号模拟
             return faker.idNumber().valid();
         } else if (lowerCaseFieldName.contains("bank")) {
-            // 银行卡号生成
             return faker.finance().creditCard();
         }
 
-        // 默认使用 lorem 生成
-        return faker.lorem().word();
+        return faker.lorem().sentence();
     }
 
     private static int getGenericParameterIndex(Class<?> clazz, String typeName) {
@@ -213,4 +209,3 @@ public class JavaFakerMockGenerator implements MockGenerator {
         return -1;
     }
 }
-
