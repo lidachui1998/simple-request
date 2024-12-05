@@ -6,7 +6,6 @@ import com.lidachui.simpleRequest.auth.AuthProvider;
 import com.lidachui.simpleRequest.constants.BackoffStrategy;
 import com.lidachui.simpleRequest.handler.AbstractHttpClientHandler;
 import com.lidachui.simpleRequest.handler.HttpClientHandler;
-import com.lidachui.simpleRequest.mock.JavaFakerMockGenerator;
 import com.lidachui.simpleRequest.mock.MockGenerator;
 import com.lidachui.simpleRequest.resolver.*;
 import com.lidachui.simpleRequest.serialize.Serializer;
@@ -363,7 +362,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
                         annotation -> ((ResponseHeader) annotation).name());
 
         if (!responseHeaderParams.isEmpty() && !headers.isEmpty()) {
-            injectHeadersIntoParameters(method, args, headers, responseHeaderParams);
+            injectHeadersIntoParameters(method, args, headers);
         }
     }
 
@@ -373,13 +372,11 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * @param method 方法
      * @param args 参数
      * @param headers 响应头
-     * @param responseHeaderParams 响应头参数
      */
     private static void injectHeadersIntoParameters(
             Method method,
             Object[] args,
-            Map<String, String> headers,
-            Map<String, ParamInfo> responseHeaderParams) {
+            Map<String, String> headers) {
         Annotation[][] parameterAnnotations = method.getParameterAnnotations();
         for (int i = 0; i < parameterAnnotations.length; i++) {
             for (Annotation annotation : parameterAnnotations[i]) {
