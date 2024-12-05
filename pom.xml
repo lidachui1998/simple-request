@@ -17,6 +17,7 @@
         <okhttp3.version>4.9.3</okhttp3.version>
         <gson.version>2.9.0</gson.version>
         <fastjson.version>2.0.52</fastjson.version>
+        <javafaker.version>1.0.2</javafaker.version>
     </properties>
 
     <parent>
@@ -30,7 +31,7 @@
         <dependency>
             <groupId>com.github.javafaker</groupId>
             <artifactId>javafaker</artifactId>
-            <version>1.0.2</version>
+            <version>${javafaker.version}</version>
         </dependency>
 
         <dependency>
