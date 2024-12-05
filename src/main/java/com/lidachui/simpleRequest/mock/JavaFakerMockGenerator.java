@@ -103,6 +103,9 @@ public class JavaFakerMockGenerator implements MockGenerator {
 
             Field[] fields = clazz.getDeclaredFields();
             for (Field field : fields) {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                    continue; // 跳过静态字段
+                }
                 field.setAccessible(true);
                 Type fieldType = field.getGenericType();
 
@@ -129,6 +132,9 @@ public class JavaFakerMockGenerator implements MockGenerator {
         try {
             Object instance = clazz.getDeclaredConstructor().newInstance();
             for (Field field : clazz.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                    continue; // 跳过静态字段
+                }
                 field.setAccessible(true);
                 String fieldName = field.getName();
                 Type fieldType = field.getGenericType();
@@ -159,7 +165,7 @@ public class JavaFakerMockGenerator implements MockGenerator {
             // 随机生成邮箱
             return faker.internet().emailAddress();
         } else if (lowerCaseFieldName.contains("phone") || lowerCaseFieldName.contains("mobile")) {
-            // 中国格式手机号
+            // 中���格式手机号
             return faker.phoneNumber().cellPhone().replaceAll("[^\\d]", "").substring(0, 11);
         } else if (lowerCaseFieldName.contains("gender")) {
             // 性别字段生成"男"/"女"
@@ -207,3 +213,4 @@ public class JavaFakerMockGenerator implements MockGenerator {
         return -1;
     }
 }
+
