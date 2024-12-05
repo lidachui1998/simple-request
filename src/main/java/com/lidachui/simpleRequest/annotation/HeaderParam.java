@@ -17,5 +17,5 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface HeaderParam {
-    String value(); // 参数名
+    String value() default ""; // 参数名
 }

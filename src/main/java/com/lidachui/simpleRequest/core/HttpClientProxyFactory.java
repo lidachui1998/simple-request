@@ -29,6 +29,7 @@ import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -95,7 +96,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
             ResponseValidator responseValidator,
             Serializer serializer) {
         return (obj, method, args, proxy) -> {
-            RestRequest restRequest = getRestRequest(method);
+            RestRequest restRequest = method.getAnnotation(RestRequest.class);
             if (restRequest == null) {
                 return proxy.invokeSuper(obj, args);
             }
@@ -135,10 +136,6 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
             return handleRestRequest(
                     clientInterface, method, args, baseUrl, responseValidator, serializer);
         };
-    }
-
-    private static RestRequest getRestRequest(Method method) {
-        return method.getAnnotation(RestRequest.class);
     }
 
     /**

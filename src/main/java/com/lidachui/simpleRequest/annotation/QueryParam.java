@@ -13,5 +13,5 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface QueryParam {
-    String value(); // 参数名
+    String value() default ""; // 参数名
 }
