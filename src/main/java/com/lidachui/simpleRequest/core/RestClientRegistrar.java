@@ -1,187 +1,151 @@
 package com.lidachui.simpleRequest.core;
 
 import com.lidachui.simpleRequest.annotation.EnableRestClients;
-import com.lidachui.simpleRequest.annotation.RestClient;
-import com.lidachui.simpleRequest.autoconfigure.RestRequestConfig;
-
-import com.lidachui.simpleRequest.util.ClassScanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.beans.factory.support.AbstractBeanDefinition;
-import org.springframework.beans.factory.support.BeanDefinitionBuilder;
-import org.springframework.beans.factory.support.DefaultListableBeanFactory;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.config.BeanDefinitionHolder;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.context.EnvironmentAware;
+import org.springframework.context.ResourceLoaderAware;
+import org.springframework.context.annotation.ImportBeanDefinitionRegistrar;
+import org.springframework.core.annotation.AnnotationAttributes;
+import org.springframework.core.env.Environment;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.core.type.AnnotationMetadata;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
 
-import java.util.*;
+import java.lang.annotation.Annotation;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 /**
- * RestClientRegistrar
+ * NewRestClientRegistrar
  *
  * @author: lihuijie
- * @date: 2024/11/19 10:13
+ * @date: 2025/2/17 21:46
  * @version: 1.0
  */
-@Configuration
-@Import({RestRequestConfig.class})
-public class RestClientRegistrar implements ApplicationContextAware, BeanFactoryPostProcessor {
+public class RestClientRegistrar implements ImportBeanDefinitionRegistrar, ResourceLoaderAware, EnvironmentAware {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RestClientRegistrar.class);
 
-    private static final Logger logger = LoggerFactory.getLogger(RestClientRegistrar.class);
-
-    private final List<String> basePackages = new ArrayList<>();
-    private List<AbstractClientProxyFactory> clientProxyFactories; // 支持多种类型的 ProxyFactory
-
-    private boolean supportsInstanceSupplier;
+    private ResourceLoader resourceLoader;
+    private Environment environment;
 
     @Override
-    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        Map<String, AbstractClientProxyFactory> proxyFactoryMap =
-                applicationContext.getBeansOfType(AbstractClientProxyFactory.class);
-        ArrayList<AbstractClientProxyFactory> abstractClientProxyFactories =
-                new ArrayList<>(proxyFactoryMap.values());
-        for (AbstractClientProxyFactory abstractClientProxyFactory : abstractClientProxyFactories) {
-            abstractClientProxyFactory.setApplicationContext(applicationContext);
-        }
-        clientProxyFactories = abstractClientProxyFactories;
-        String[] configBeanNames =
-                applicationContext.getBeanNamesForAnnotation(EnableRestClients.class);
-        for (String beanName : configBeanNames) {
-            Object configBean = applicationContext.getBean(beanName);
+    public void registerBeanDefinitions(AnnotationMetadata importingClassMetadata, BeanDefinitionRegistry registry) {
+        LOGGER.debug("Starting to register RestClient bean definitions");
 
-            EnableRestClients enableRestClients =
-                    AnnotationUtils.findAnnotation(configBean.getClass(), EnableRestClients.class);
-            if (enableRestClients != null) {
-                basePackages.addAll(Arrays.asList(enableRestClients.basePackages()));
-                logger.info("Found @EnableRestClients with basePackages: {}", basePackages);
-            }
+        AnnotationAttributes attributes = getAnnotationAttributes(importingClassMetadata);
+        if (attributes == null) return;
+
+        ClassPathMapperScanner scanner = createAndConfigureScanner(registry, attributes);
+        List<String> basePackages = getBasePackages(attributes);
+        registerRestClients(scanner, basePackages);
+    }
+
+    private AnnotationAttributes getAnnotationAttributes(AnnotationMetadata metadata) {
+        AnnotationAttributes attributes = AnnotationAttributes.fromMap(
+                metadata.getAnnotationAttributes(EnableRestClients.class.getName()));
+
+        if (attributes == null) {
+            LOGGER.warn("No @EnableRestClients annotation found");
+        }
+        return attributes;
+    }
+
+    private ClassPathMapperScanner createAndConfigureScanner(BeanDefinitionRegistry registry,
+                                                           AnnotationAttributes attributes) {
+        ClassPathMapperScanner scanner = new ClassPathMapperScanner(registry);
+
+        configureScanner(scanner, attributes);
+        configureFactoryBean(scanner, attributes);
+
+        return scanner;
+    }
+
+    private void configureScanner(ClassPathMapperScanner scanner, AnnotationAttributes attributes) {
+        if (resourceLoader != null) {
+            scanner.setResourceLoader(resourceLoader);
+            LOGGER.debug("ResourceLoader set for scanner");
         }
 
-        // 检查是否支持 setInstanceSupplier 方法
-        supportsInstanceSupplier =
-                Arrays.stream(AbstractBeanDefinition.class.getMethods())
-                        .anyMatch(method -> method.getName().equals("setInstanceSupplier"));
-        logger.info("Spring version supports setInstanceSupplier: {}", supportsInstanceSupplier);
+        scanner.setEnvironment(environment);
+        LOGGER.debug("Environment set for scanner");
+
+        // 配置注解类
+        Class<? extends Annotation> annotationClass = attributes.getClass("annotationClass");
+        if (annotationClass != Annotation.class) {
+            LOGGER.info("Using custom annotation class: {}", annotationClass.getName());
+            scanner.setAnnotationClass(annotationClass);
+        }
+
+        // 配置标记接口
+        Class<?> markerInterface = attributes.getClass("markerInterface");
+        if (markerInterface != Class.class) {
+            LOGGER.info("Using marker interface: {}", markerInterface.getName());
+            scanner.setMarkerInterface(markerInterface);
+        }
+    }
+
+    private void configureFactoryBean(ClassPathMapperScanner scanner, AnnotationAttributes attributes) {
+        Class<? extends RestClientFactoryBean> factoryBean = attributes.getClass("factoryBean");
+        if (!RestClientFactoryBean.class.equals(factoryBean)) {
+            scanner.setRestClientFactoryBean(BeanUtils.instantiateClass(factoryBean));
+            LOGGER.info("Using custom RestClientFactoryBean: {}", factoryBean.getName());
+        }
+    }
+
+    private List<String> getBasePackages(AnnotationAttributes attributes) {
+        List<String> basePackages = new ArrayList<>();
+
+        addPackagesFromValue(basePackages, attributes);
+        addPackagesFromBasePackages(basePackages, attributes);
+        addPackagesFromBasePackageClasses(basePackages, attributes);
+
+        LOGGER.info("Configured base packages for scanning: {}", basePackages);
+        return basePackages;
+    }
+
+    private void addPackagesFromValue(List<String> basePackages, AnnotationAttributes attributes) {
+        for (String pkg : attributes.getStringArray("value")) {
+            addIfNotEmpty(basePackages, pkg);
+        }
+    }
+
+    private void addPackagesFromBasePackages(List<String> basePackages, AnnotationAttributes attributes) {
+        for (String pkg : attributes.getStringArray("basePackages")) {
+            addIfNotEmpty(basePackages, pkg);
+        }
+    }
+
+    private void addPackagesFromBasePackageClasses(List<String> basePackages, AnnotationAttributes attributes) {
+        for (Class<?> clazz : attributes.getClassArray("basePackageClasses")) {
+            basePackages.add(ClassUtils.getPackageName(clazz));
+        }
+    }
+
+    private void addIfNotEmpty(List<String> basePackages, String pkg) {
+        if (StringUtils.hasText(pkg)) {
+            basePackages.add(pkg);
+        }
+    }
+
+    private void registerRestClients(ClassPathMapperScanner scanner, List<String> basePackages) {
+        scanner.registerFilters();
+        Set<BeanDefinitionHolder> beanDefinitions = scanner.doScan(StringUtils.toStringArray(basePackages));
+        LOGGER.info("Found {} RestClient interfaces", beanDefinitions.size());
     }
 
     @Override
-    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory)
-            throws BeansException {
-        basePackages.parallelStream()
-                .forEach(
-                        basePackage -> {
-                            List<Class<?>> annotatedInterfaces =
-                                    scanClassesWithAnnotation(basePackage);
-                            for (Class<?> clazz : annotatedInterfaces) {
-                                if (clazz.isInterface()) {
-                                    try {
-                                        AbstractClientProxyFactory restClientProxyFactory =
-                                                clientProxyFactories.stream()
-                                                        .filter(factory -> factory.supports(clazz))
-                                                        .findFirst()
-                                                        .orElseThrow(
-                                                                () ->
-                                                                        new IllegalArgumentException(
-                                                                                "No suitable RestClientProxyFactory found for class: "
-                                                                                        + clazz
-                                                                                                .getName()));
-                                        Object proxyInstance = restClientProxyFactory.create(clazz);
-                                        registerBean(beanFactory, clazz, proxyInstance);
-                                        logger.info(
-                                                "Registered RestClient proxy for: {}",
-                                                clazz.getName());
-                                    } catch (Exception e) {
-                                        logger.error(
-                                                "Failed to register RestClient bean for: {}",
-                                                clazz.getName(),
-                                                e);
-                                        throw new RuntimeException(
-                                                "Failed to register RestClient beans", e);
-                                    }
-                                }
-                            }
-                        });
+    public void setEnvironment(Environment environment) {
+        this.environment = environment;
     }
 
-    /**
-     * 扫描带有注释类
-     *
-     * @param basePackage 基本包
-     * @return 列表<class < ？>>
-     */
-    private List<Class<?>> scanClassesWithAnnotation(String basePackage) {
-        try {
-            return ClassScanner.getClassesWithAnnotations(
-                    basePackage, RestClient.class);
-        } catch (Exception e) {
-            logger.error("Failed to scan package: {}", basePackage, e);
-            return Collections.emptyList();
-        }
-    }
-
-    /**
-     * 注册bean
-     *
-     * @param beanFactory 豆厂
-     * @param clazz clazz
-     * @param proxyInstance 代理实例
-     */
-    private void registerBean(
-            ConfigurableListableBeanFactory beanFactory, Class<?> clazz, Object proxyInstance) {
-        if (beanFactory instanceof DefaultListableBeanFactory) {
-            DefaultListableBeanFactory registry = (DefaultListableBeanFactory) beanFactory;
-
-            String beanName = determineBeanName(clazz);
-
-            if (supportsInstanceSupplier) {
-                // 新版本 Spring 的处理逻辑
-                BeanDefinitionBuilder builder = BeanDefinitionBuilder.genericBeanDefinition();
-                AbstractBeanDefinition beanDefinition = builder.getBeanDefinition();
-                beanDefinition.setBeanClass(clazz);
-                beanDefinition.setInstanceSupplier(() -> proxyInstance);
-                registry.registerBeanDefinition(beanName, beanDefinition);
-                logger.info("Registered bean with setInstanceSupplier: {}", beanName);
-            } else {
-                // 旧版本 Spring 的处理逻辑
-                registry.registerSingleton(beanName, proxyInstance);
-                logger.info("Registered singleton bean: {}", beanName);
-            }
-        }
-    }
-
-    /**
-     * 确定bean名称
-     *
-     * @param clazz clazz
-     * @return 一串
-     */
-    private String determineBeanName(Class<?> clazz) {
-        RestClient restClientAnnotation = clazz.getAnnotation(RestClient.class);
-        if (restClientAnnotation != null) {
-            return !restClientAnnotation.name().isEmpty()
-                    ? restClientAnnotation.name()
-                    : generateBeanName(clazz);
-        }
-        return null;
-    }
-
-    /**
-     * 根据类生成类似 Spring 风格的 Bean 名称。
-     *
-     * @param clazz 要生成名称的类
-     * @return 生成的 Bean 名称
-     */
-    public static String generateBeanName(Class<?> clazz) {
-        // 获取类的简单名称
-        String simpleName = clazz.getSimpleName();
-
-        // 将第一个字母小写（符合 Spring 的默认规则）
-        return StringUtils.uncapitalize(simpleName);
+    @Override
+    public void setResourceLoader(ResourceLoader resourceLoader) {
+        this.resourceLoader = resourceLoader;
     }
 }

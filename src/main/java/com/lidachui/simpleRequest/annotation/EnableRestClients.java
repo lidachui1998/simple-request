@@ -1,13 +1,11 @@
 package com.lidachui.simpleRequest.annotation;
 
+import com.lidachui.simpleRequest.autoconfigure.RestClientAutoConfiguration;
 import com.lidachui.simpleRequest.core.RestClientRegistrar;
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
+import com.lidachui.simpleRequest.core.RestClientFactoryBean;
 import org.springframework.context.annotation.Import;
+
+import java.lang.annotation.*;
 
 /**
  * EnableRestClients
@@ -16,11 +14,20 @@ import org.springframework.context.annotation.Import;
  * @date: 2024/11/19 9:58
  * @version: 1.0
  */
-@Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
 @Documented
-@Import(RestClientRegistrar.class)
+@Import({RestClientRegistrar.class, RestClientAutoConfiguration.class})
 public @interface EnableRestClients {
+    String[] value() default {};
 
     String[] basePackages() default {};
+
+    Class<?>[] basePackageClasses() default {};
+
+    Class<? extends Annotation> annotationClass() default Annotation.class;
+
+    Class<?> markerInterface() default Class.class;
+
+    Class<? extends RestClientFactoryBean> factoryBean() default RestClientFactoryBean.class;
 }

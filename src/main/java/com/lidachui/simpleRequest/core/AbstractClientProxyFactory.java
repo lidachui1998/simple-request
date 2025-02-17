@@ -3,6 +3,7 @@ package com.lidachui.simpleRequest.core;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.context.ApplicationContext;
+import org.springframework.core.env.Environment;
 
 /**
  * AbstractClientProxyFactory
@@ -14,6 +15,11 @@ import org.springframework.context.ApplicationContext;
 public abstract class AbstractClientProxyFactory implements ClientProxyFactory {
 
     @Getter @Setter private ApplicationContext applicationContext;
+    private Environment environment;
+
+    public void setEnvironment(Environment environment) {
+        this.environment = environment;
+    }
 
     /**
      * 创建代理对象
@@ -35,9 +41,8 @@ public abstract class AbstractClientProxyFactory implements ClientProxyFactory {
 
     @Override
     public String getBaseUrl(String propertyKey, String baseUrl) {
-        if (propertyKey != null && !propertyKey.isEmpty()) {
-            String propertyValue =
-                    getApplicationContext().getEnvironment().getProperty(propertyKey);
+        if (propertyKey != null && !propertyKey.isEmpty() && environment != null) {
+            String propertyValue = environment.getProperty(propertyKey);
             return (propertyValue != null && !propertyValue.isEmpty()) ? propertyValue : baseUrl;
         }
         return baseUrl;

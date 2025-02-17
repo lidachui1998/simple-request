@@ -9,6 +9,9 @@ import com.lidachui.simpleRequest.handler.RestTemplateHandler;
 import com.lidachui.simpleRequest.util.SpringUtil;
 import com.lidachui.simpleRequest.validator.DefaultResponseValidator;
 
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -20,11 +23,14 @@ import org.springframework.context.annotation.Configuration;
  * @version: 1.0
  */
 @Configuration
-public class RestRequestConfig {
+public class RestClientAutoConfiguration implements ApplicationContextAware {
+    private ApplicationContext applicationContext;
 
     @Bean
     public HttpClientProxyFactory httpClientProxyFactory() {
-        return new HttpClientProxyFactory();
+        HttpClientProxyFactory factory = new HttpClientProxyFactory();
+        factory.setApplicationContext(applicationContext);
+        return factory;
     }
 
     @Bean
@@ -60,5 +66,10 @@ public class RestRequestConfig {
     @Bean
     public RedisCacheStrategy redisCacheStrategy() {
         return new RedisCacheStrategy();
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
     }
 }
