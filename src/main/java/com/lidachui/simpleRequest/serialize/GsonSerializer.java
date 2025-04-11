@@ -1,15 +1,15 @@
 package com.lidachui.simpleRequest.serialize;
 
+import com.google.gson.*;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
 import java.lang.reflect.Type;
-import com.google.gson.*;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Date;
+import java.util.List;
 
 /**
  * GsonSerializer
@@ -37,22 +37,6 @@ public class GsonSerializer implements Serializer {
             return gson.toJson(input);
         } catch (Exception e) {
             throw new RuntimeException("Serialization failed", e);
-        }
-    }
-
-    /**
-     * 反序列化
-     *
-     * @param input 输入
-     * @param type 类型
-     * @return t
-     */
-    @Override
-    public <T> T deserialize(String input, Class<T> type) {
-        try {
-            return gson.fromJson(input, type);
-        } catch (Exception e) {
-            throw new RuntimeException("Deserialization failed", e);
         }
     }
 

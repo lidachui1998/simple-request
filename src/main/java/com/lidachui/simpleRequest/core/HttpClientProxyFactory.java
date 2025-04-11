@@ -700,7 +700,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         return Void.TYPE.equals(returnType);
     }
 
-    private static final String FRAMEWORK_IDENTIFIER = "simple-request:cache"; // 框架特有标识
+    public static final String FRAMEWORK_IDENTIFIER = "simple-request:cache"; // 框架特有标识
 
     public static String generateCacheKey(Method method, Object[] args) {
         String className = method.getDeclaringClass().getName(); // 获取类的全限定名

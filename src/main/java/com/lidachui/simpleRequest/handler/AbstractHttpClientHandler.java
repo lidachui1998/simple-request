@@ -1,7 +1,13 @@
 package com.lidachui.simpleRequest.handler;
 
+import com.lidachui.simpleRequest.constants.FilterPhase;
 import com.lidachui.simpleRequest.filter.AbstractRequestFilter;
-import com.lidachui.simpleRequest.resolver.*;
+import com.lidachui.simpleRequest.filter.FilterChain;
+import com.lidachui.simpleRequest.resolver.AbstractResponseBuilder;
+import com.lidachui.simpleRequest.resolver.DefaultResponseBuilder;
+import com.lidachui.simpleRequest.resolver.Request;
+import com.lidachui.simpleRequest.resolver.RequestContext;
+import com.lidachui.simpleRequest.resolver.Response;
 import com.lidachui.simpleRequest.util.RequestIdGenerator;
 import com.lidachui.simpleRequest.util.SpringUtil;
 
@@ -9,10 +15,15 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.util.CollectionUtils;
+import org.springframework.core.annotation.Order;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * AbstractHttpClientHandler
@@ -28,8 +39,6 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
 
     private AbstractResponseBuilder responseBuilder = new DefaultResponseBuilder();
 
-    private List<AbstractRequestFilter> requestFilters = new ArrayList<>();
-
     /**
      * 发送请求
      *
@@ -38,23 +47,26 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
      */
     @Override
     public Response sendRequest(Request request) {
-        RequestContext requestContext = new RequestContext();
-        // 记录请求上下文
-        requestContext.setRequestId(RequestIdGenerator.generate());
-        requestContext.setRequest(request);
-        // 调用所有 RequestFilter 的 preHandle
-        invokePreHandleFilters(request, requestContext);
-        Response response = null;
+        RequestContext requestContext = createRequestContext(request);
+        FilterChain filterChain = new FilterChain(getRequestFilters());
+
         try {
-            response = executeRequest(request);
+            // 前置处理
+            filterChain.doFilter(request, null, requestContext, FilterPhase.PRE_HANDLE);
+
+            // 执行请求
+            Response response = executeRequest(request);
             requestContext.setResponse(response);
-            // 调用所有 RequestFilter 的 afterCompletion
-            invokeAfterCompletionFilters(request, response, requestContext);
+
+            // 后置处理
+            filterChain.doFilter(request, response, requestContext, FilterPhase.AFTER_COMPLETION);
+
             return response;
         } catch (Exception e) {
-            // 调用所有 RequestFilter 的 error
-            invokeErrorFilters(request, response, e, requestContext);
-            throw e; // 重新抛出异常
+            // 异常处理
+            filterChain.doFilter(
+                    request, requestContext.getResponse(), requestContext, FilterPhase.ERROR);
+            throw e;
         }
     }
 
@@ -72,62 +84,34 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
     // 抽象方法，由子类实现具体的请求逻辑
     protected abstract Response executeRequest(Request request);
 
-    // 调用所有 preHandle
-    private void invokePreHandleFilters(Request request, RequestContext requestContext) {
-        List<AbstractRequestFilter> requestFilters = getRequestFilters();
-        for (AbstractRequestFilter filter : requestFilters) {
-            try {
-                filter.setRequestContext(requestContext);
-                filter.preHandle(request);
-            } catch (Exception e) {
-                log.warn("Error executing preHandle filter: {}", filter.getClass().getName(), e);
-            }
-        }
-    }
-
-    // 调用所有 afterCompletion
-    private void invokeAfterCompletionFilters(
-            Request request, Response response, RequestContext requestContext) {
-        List<AbstractRequestFilter> requestFilters = getRequestFilters();
-        for (AbstractRequestFilter filter : requestFilters) {
-            try {
-                filter.setRequestContext(requestContext);
-                filter.afterCompletion(request, response);
-            } catch (Exception e) {
-                log.warn(
-                        "Error executing afterCompletion filter: {}",
-                        filter.getClass().getName(),
-                        e);
-            }
-        }
-    }
-
-    // 调用所有 error
-    private void invokeErrorFilters(
-            Request request, Response response, Exception e, RequestContext requestContext) {
-        List<AbstractRequestFilter> requestFilters = getRequestFilters();
-        for (AbstractRequestFilter filter : requestFilters) {
-            try {
-                filter.setRequestContext(requestContext);
-                filter.error(request, response, e);
-            } catch (Exception ex) {
-                log.warn("Error executing error filter: {}", filter.getClass().getName(), ex);
-            }
-        }
+    private RequestContext createRequestContext(Request request) {
+        RequestContext requestContext = new RequestContext();
+        requestContext.setRequestId(RequestIdGenerator.generate());
+        requestContext.setRequest(request);
+        return requestContext;
     }
 
     private List<AbstractRequestFilter> getRequestFilters() {
         if (!SpringUtil.isSpringContextActive()) {
-            return requestFilters;
+            return Collections.emptyList();
         }
-        if (CollectionUtils.isEmpty(requestFilters)) {
-            Map<String, AbstractRequestFilter> beans =
-                    SpringUtil.getBeansOfType(AbstractRequestFilter.class);
-            Collection<AbstractRequestFilter> values = beans.values();
-            if (!CollectionUtils.isEmpty(values)) {
-                requestFilters.addAll(values);
-            }
-        }
-        return requestFilters;
+
+        return Optional.of(SpringUtil.getBeansOfType(AbstractRequestFilter.class))
+                .map(Map::values)
+                .map(
+                        filters ->
+                                filters.stream()
+                                        .sorted(
+                                                Comparator.comparing(
+                                                        filter ->
+                                                                Optional.ofNullable(
+                                                                                filter.getClass()
+                                                                                        .getAnnotation(
+                                                                                                Order
+                                                                                                        .class))
+                                                                        .map(Order::value)
+                                                                        .orElse(Integer.MAX_VALUE)))
+                                        .collect(Collectors.toList()))
+                .orElse(Collections.emptyList());
     }
 }

@@ -1,13 +1,18 @@
 package com.lidachui.simpleRequest.serialize;
 
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.lang.reflect.Type;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map.Entry;
 
 /**
@@ -24,7 +29,6 @@ public class JacksonSerializer implements Serializer {
     static {
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        objectMapper.registerModule(new JavaTimeModule());
     }
 
     /**
@@ -39,22 +43,6 @@ public class JacksonSerializer implements Serializer {
             return objectMapper.writeValueAsString(input);
         } catch (Exception e) {
             throw new RuntimeException("Serialization failed", e);
-        }
-    }
-
-    /**
-     * 反序列化
-     *
-     * @param input 输入
-     * @param type 类型
-     * @return t
-     */
-    @Override
-    public <T> T deserialize(String input, Class<T> type) {
-        try {
-            return objectMapper.readValue(input, type);
-        } catch (Exception e) {
-            throw new RuntimeException("Deserialization failed", e);
         }
     }
 
@@ -85,35 +73,35 @@ public class JacksonSerializer implements Serializer {
     // 解析根节点或特定节点的辅助方法
     private <T> T parseNode(JsonNode node, JavaType targetType) {
         // 处理空节点或者空对象
-        if (node.isNull() || (node.isObject() && node.isEmpty())) {
+
+        if (node.isNull() || (node.isObject() && node.size() == 0)) {
             return null;
         }
 
-        // 处理对象类型，检查每个字段
-        if (node.isObject()) {
-            Iterator<Entry<String, JsonNode>> fields = node.fields();
-            while (fields.hasNext()) {
-                Map.Entry<String, JsonNode> field = fields.next();
-                JsonNode fieldValue = field.getValue();
-
-                // 如果子字段是空对象或者 null，设置为 null
-                if (fieldValue.isNull() || (fieldValue.isObject() && fieldValue.isEmpty())) {
-                    ((ObjectNode) node).set(field.getKey(), NullNode.getInstance()); // 设置为空
-                }
-            }
-            return objectMapper.convertValue(node, targetType);
-        }
-
-        // 处理数组类型，递归解析每个元素
+        // 处理数组类型
         if (node.isArray()) {
+            if (targetType.isCollectionLikeType()) {
+                return objectMapper.convertValue(node, targetType);
+            }
             List<Object> result = new ArrayList<>();
             for (JsonNode arrayNode : node) {
-                result.add(parseNode(arrayNode, targetType));
+                result.add(parseNode(arrayNode, targetType.getContentType()));
             }
             return (T) result;
         }
 
-        // 处理基础类型（如字符串、数字等）
+        // 处理对象类型
+        if (node.isObject()) {
+            Iterator<Entry<String, JsonNode>> fields = node.fields();
+            while (fields.hasNext()) {
+                Entry<String, JsonNode> field = fields.next();
+                JsonNode fieldValue = field.getValue();
+                if (fieldValue.isNull() || (fieldValue.isObject() && fieldValue.isEmpty())) {
+                    ((ObjectNode) node).set(field.getKey(), NullNode.getInstance());
+                }
+            }
+        }
+
         return objectMapper.convertValue(node, targetType);
     }
 }

@@ -1,6 +1,7 @@
 package com.lidachui.simpleRequest.core;
 
 import com.lidachui.simpleRequest.annotation.EnableRestClients;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -17,15 +18,13 @@ import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
 
 import java.lang.annotation.Annotation;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
- * NewRestClientRegistrar
+ * RestClientRegistrar
  *
  * @author: lihuijie
- * @date: 2025/2/17 21:46
+ * @date: 2024/11/19 10:13
  * @version: 1.0
  */
 public class RestClientRegistrar implements ImportBeanDefinitionRegistrar, ResourceLoaderAware, EnvironmentAware {
@@ -48,7 +47,7 @@ public class RestClientRegistrar implements ImportBeanDefinitionRegistrar, Resou
 
     private AnnotationAttributes getAnnotationAttributes(AnnotationMetadata metadata) {
         AnnotationAttributes attributes = AnnotationAttributes.fromMap(
-                metadata.getAnnotationAttributes(EnableRestClients.class.getName()));
+            metadata.getAnnotationAttributes(EnableRestClients.class.getName()));
 
         if (attributes == null) {
             LOGGER.warn("No @EnableRestClients annotation found");
@@ -57,7 +56,7 @@ public class RestClientRegistrar implements ImportBeanDefinitionRegistrar, Resou
     }
 
     private ClassPathMapperScanner createAndConfigureScanner(BeanDefinitionRegistry registry,
-                                                           AnnotationAttributes attributes) {
+        AnnotationAttributes attributes) {
         ClassPathMapperScanner scanner = new ClassPathMapperScanner(registry);
 
         configureScanner(scanner, attributes);

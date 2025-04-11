@@ -1,8 +1,5 @@
 package com.lidachui.simpleRequest.serialize;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JavaType;
-
 import java.lang.reflect.Type;
 
 /**
@@ -20,16 +17,6 @@ public interface Serializer {
      * @return 一串
      */
     String serialize(Object input);
-
-    /**
-     * 反序列化
-     *
-     * @param input 输入
-     * @param type 类型
-     * @return t
-     */
-    <T> T deserialize(String input, Class<T> type);
-
     /**
      * 反序列化
      *
