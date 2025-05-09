@@ -1,9 +1,11 @@
 package com.lidachui.simpleRequest.handler;
 
+import com.lidachui.simpleRequest.resolver.BinaryAwareResponse;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
 import com.lidachui.simpleRequest.serialize.JacksonSerializer;
 import com.lidachui.simpleRequest.serialize.Serializer;
+import com.lidachui.simpleRequest.util.ContentTypeUtil;
 
 import kotlin.Pair;
 
@@ -91,12 +93,18 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
                 Map<String, String> headersMap = new HashMap<>();
                 Headers responseHeaders = response.headers();
                 for (Pair<? extends String, ? extends String> header : responseHeaders) {
-                    String first = header.getFirst();
-                    String second = header.getSecond();
-                    headersMap.put(first, second);
+                    headersMap.put(header.getFirst(), header.getSecond());
                 }
-                String responseBody = response.body() != null ? response.body().string() : "";
-                return new Response(responseBody, headersMap);
+
+                // 先读取ResponseBody到字节数组，这样可以防止多次读取OkHttp响应体导致的异常
+                byte[] bodyBytes = response.body() != null ? response.body().bytes() : new byte[0];
+
+                // 根据Content-Type判断是否为二进制数据
+                String contentType = headersMap.getOrDefault("Content-Type", "");
+                boolean isBinaryContent = ContentTypeUtil.isBinaryContentType(contentType);
+
+                // 保存原始字节数组到一个自定义的响应对象
+              return new BinaryAwareResponse(bodyBytes, headersMap, isBinaryContent);
             } else {
                 throw new IOException("Request failed with status code: " + response.code());
             }
