@@ -1,5 +1,6 @@
 package com.lidachui.simpleRequest.autoconfigure;
 
+import com.lidachui.simpleRequest.cache.DefaultCacheManager;
 import com.lidachui.simpleRequest.cache.LocalCacheStrategy;
 import com.lidachui.simpleRequest.cache.RedisCacheStrategy;
 import com.lidachui.simpleRequest.core.HttpClientProxyFactory;
@@ -14,6 +15,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.*;
 
 /**
  * RestRequestConfig
@@ -66,6 +69,12 @@ public class RestClientAutoConfiguration implements ApplicationContextAware {
     @Bean
     public RedisCacheStrategy redisCacheStrategy() {
         return new RedisCacheStrategy();
+    }
+
+    @Bean
+    public DefaultCacheManager defaultCacheManager(
+            LocalCacheStrategy localCacheStrategy, RedisCacheStrategy redisCacheStrategy) {
+        return new DefaultCacheManager(Arrays.asList(localCacheStrategy, redisCacheStrategy));
     }
 
     @Override

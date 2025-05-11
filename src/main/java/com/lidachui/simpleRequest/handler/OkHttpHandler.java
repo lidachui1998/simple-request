@@ -45,7 +45,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
         try {
             // 设置请求头
             if (request.getHeaders() != null) {
-                Set set = request.getHeaders().entrySet();
+                Set<Map.Entry<String, String>> set = request.getHeaders().entrySet();
                 for (Object o : set) {
                     Map.Entry entry = (Map.Entry) o;
                     String key = (String) entry.getKey();
