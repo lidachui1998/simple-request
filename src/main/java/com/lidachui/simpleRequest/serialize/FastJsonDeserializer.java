@@ -33,7 +33,7 @@ public class FastJsonDeserializer implements Serializer{
    * @return t
    */
   @Override
-  public <T> T deserialize(String input, Type responseType) {
+  public <T> T deserialize(byte[] input, Type responseType) {
         return JSON.parseObject(input, responseType);
   }
 }

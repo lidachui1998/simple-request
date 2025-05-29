@@ -20,9 +20,9 @@ public class Response {
     /** 头信息 */
     private Map<String, String> headers;
 
-
     public Response(Object body, Map<String, String> headers) {
         this.body = body;
         this.headers = headers;
     }
+
 }

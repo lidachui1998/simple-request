@@ -2,6 +2,7 @@ package com.lidachui.simpleRequest.core;
 
 import com.lidachui.simpleRequest.annotation.RestClient;
 
+import java.util.Objects;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinitionHolder;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
@@ -81,7 +82,7 @@ public class ClassPathMapperScanner extends ClassPathBeanDefinitionScanner imple
             GenericBeanDefinition definition = (GenericBeanDefinition) holder.getBeanDefinition();
             definition
                     .getConstructorArgumentValues()
-                    .addGenericArgumentValue(definition.getBeanClassName());
+                    .addGenericArgumentValue(Objects.requireNonNull(definition.getBeanClassName()));
             definition.setBeanClass(this.restClientFactoryBean.getClass());
 
             // 添加环境变量属性

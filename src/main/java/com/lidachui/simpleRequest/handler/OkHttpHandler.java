@@ -1,12 +1,13 @@
 package com.lidachui.simpleRequest.handler;
 
-import com.lidachui.simpleRequest.resolver.BinaryAwareResponse;
+import com.lidachui.simpleRequest.resolver.ByteResponse;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
 import com.lidachui.simpleRequest.serialize.JacksonSerializer;
 import com.lidachui.simpleRequest.serialize.Serializer;
 import com.lidachui.simpleRequest.util.ContentTypeUtil;
 
+import com.lidachui.simpleRequest.util.ObjectUtil;
 import kotlin.Pair;
 
 import okhttp3.*;
@@ -104,7 +105,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
                 boolean isBinaryContent = ContentTypeUtil.isBinaryContentType(contentType);
 
                 // 保存原始字节数组到一个自定义的响应对象
-              return new BinaryAwareResponse(bodyBytes, headersMap, isBinaryContent);
+                return new ByteResponse(bodyBytes, headersMap, isBinaryContent);
             } else {
                 throw new IOException("Request failed with status code: " + response.code());
             }
@@ -235,7 +236,7 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
      * @param json JSON 字符串
      * @return Map 表单字段和值
      */
-    private Map parseJsonToMap(Request request, String json) {
-        return request.getSerializer().deserialize(json, Map.class);
+    private Map parseJsonToMap(Request request, String json) throws IOException {
+        return request.getSerializer().deserialize(ObjectUtil.objectToByteArray(json), Map.class);
     }
 }

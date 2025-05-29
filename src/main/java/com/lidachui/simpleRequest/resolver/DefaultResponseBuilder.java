@@ -2,6 +2,8 @@ package com.lidachui.simpleRequest.resolver;
 
 import com.lidachui.simpleRequest.serialize.Serializer;
 
+import com.lidachui.simpleRequest.util.ObjectUtil;
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 
@@ -18,8 +20,8 @@ public class DefaultResponseBuilder extends AbstractResponseBuilder {
     public <T> T buildResponse(Response response, Type responseType) {
         // 处理二进制响应
         if (responseType == byte[].class) {
-            if (response instanceof BinaryAwareResponse) {
-                return (T) ((BinaryAwareResponse) response).getRawBytes();
+            if (response instanceof ByteResponse) {
+                return (T) ((ByteResponse) response).getRawBytes();
             }
             if (response.getBody() instanceof byte[]) {
                 return (T) response.getBody();
@@ -31,15 +33,16 @@ public class DefaultResponseBuilder extends AbstractResponseBuilder {
 
         // 处理字符串序列化响应
         Serializer serializer = getSerializer();
-        if (response instanceof BinaryAwareResponse) {
-            BinaryAwareResponse binaryResponse = (BinaryAwareResponse) response;
-            if (binaryResponse.isBinaryContent()) {
-                // 二进制响应但需要转换为对象，先转为字符串
-                String bodyStr = new String(binaryResponse.getRawBytes(), StandardCharsets.UTF_8);
-                return serializer.deserialize(bodyStr, responseType);
-            }
+        if (response instanceof ByteResponse) {
+            ByteResponse binaryResponse = (ByteResponse) response;
+            return serializer.deserialize(binaryResponse.getRawBytes(), responseType);
         }
 
-        return serializer.deserialize(response.getBody().toString(), responseType);
+        try {
+            return serializer.deserialize(
+                    ObjectUtil.objectToByteArray(response.getBody()), responseType);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
