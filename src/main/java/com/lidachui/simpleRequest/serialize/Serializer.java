@@ -24,5 +24,5 @@ public interface Serializer {
      * @param responseType 类型参考
      * @return t
      */
-    <T> T deserialize(String input, Type responseType);
+    <T> T deserialize(byte[] input, Type responseType);
 }

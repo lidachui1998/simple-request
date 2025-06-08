@@ -7,6 +7,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -20,10 +21,13 @@ import java.util.List;
  */
 public class GsonSerializer implements Serializer {
 
-    private static final Gson gson = new GsonBuilder()
-            .registerTypeAdapter(Date.class, new DateTypeAdapter())  // Register the custom DateTypeAdapter
-            .setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
-            .create();
+    private static final Gson gson =
+            new GsonBuilder()
+                    .registerTypeAdapter(
+                            Date.class,
+                            new DateTypeAdapter()) // Register the custom DateTypeAdapter
+                    .setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+                    .create();
 
     /**
      * 序列化
@@ -48,10 +52,11 @@ public class GsonSerializer implements Serializer {
      * @return t
      */
     @Override
-    public <T> T deserialize(String input, Type responseType) {
+    public <T> T deserialize(byte[] input, Type responseType) {
         try {
             // 获取 Gson 的 JsonElement 实例
-            JsonElement element = JsonParser.parseString(input);
+            String bodyStr = new String(input, StandardCharsets.UTF_8);
+            JsonElement element = JsonParser.parseString(bodyStr);
 
             // 使用 Gson 的流式解析（相当于 Jackson 的流式解析）
             return parseNode(element, responseType);
@@ -77,9 +82,7 @@ public class GsonSerializer implements Serializer {
         return gson.fromJson(element, targetType);
     }
 
-    /**
-     * 自定义的日期适配器，处理 Unix 时间戳
-     */
+    /** 自定义的日期适配器，处理 Unix 时间戳 */
     public static class DateTypeAdapter implements JsonSerializer<Date>, JsonDeserializer<Date> {
 
         @Override
@@ -88,7 +91,8 @@ public class GsonSerializer implements Serializer {
         }
 
         @Override
-        public Date deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+        public Date deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
+                throws JsonParseException {
             try {
                 // 如果是数字，则当作 Unix 时间戳处理
                 if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isNumber()) {

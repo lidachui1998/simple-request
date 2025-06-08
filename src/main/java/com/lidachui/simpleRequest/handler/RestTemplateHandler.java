@@ -1,6 +1,6 @@
 package com.lidachui.simpleRequest.handler;
 
-import com.lidachui.simpleRequest.resolver.BinaryAwareResponse;
+import com.lidachui.simpleRequest.resolver.ByteResponse;
 import com.lidachui.simpleRequest.resolver.Request;
 import com.lidachui.simpleRequest.resolver.Response;
 import com.lidachui.simpleRequest.util.ContentTypeUtil;
@@ -50,7 +50,7 @@ public class RestTemplateHandler extends AbstractHttpClientHandler {
         boolean isBinaryContent = ContentTypeUtil.isBinaryContentType(contentType);
 
         // 返回支持二进制的响应对象
-        return new BinaryAwareResponse(responseBytes, headersMap, isBinaryContent);
+        return new ByteResponse(responseBytes, headersMap, isBinaryContent);
     }
 
     public RestTemplate getRestTemplate() {
