@@ -20,4 +20,6 @@ public class RequestContext {
     private Response response;
 
     private Method method;
+
+    private Object[] args;
 }
