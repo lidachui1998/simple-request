@@ -16,6 +16,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Resource;
+import org.springframework.util.CollectionUtils;
 
 /**
  * RedisCacheStrategy
@@ -26,9 +27,11 @@ import javax.annotation.Resource;
  */
 public class RedisCacheStrategy implements CacheStrategy {
 
-    @Resource private RedisTemplate redisTemplate;
+    @Resource
+    private RedisTemplate redisTemplate;
 
-    @Resource private StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     private static final Logger logger = LoggerFactory.getLogger(RedisCacheStrategy.class);
 
@@ -68,12 +71,12 @@ public class RedisCacheStrategy implements CacheStrategy {
     }
 
     @Override
-    public void put(String key, Object value, long ttl) {
+    public void put(String key, Object value, long expire, TimeUnit timeUnit) {
         if (redisTemplate == null) {
             logger.warn("Redis is not configured or disabled.");
             return;
         }
-        redisTemplate.opsForValue().set(key, value, ttl, TimeUnit.MILLISECONDS);
+        redisTemplate.opsForValue().set(key, value, expire, timeUnit);
         notifyListeners(new CacheEvent(key, value, CacheEventType.PUT));
     }
 
@@ -94,7 +97,7 @@ public class RedisCacheStrategy implements CacheStrategy {
     public void removeAll() {
         if (redisTemplate != null) {
             Set<String> keys = redisTemplate.keys(FRAMEWORK_IDENTIFIER + "*");
-            if (keys != null && !keys.isEmpty()) {
+            if (!CollectionUtils.isEmpty(keys)) {
                 redisTemplate.delete(keys);
             }
         }

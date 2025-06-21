@@ -67,7 +67,7 @@ public class SimpleClient {
      */
     public Response execute(Request request, Type responseType) {
         request.setSerializer(serializer);
-        Response response = httpClientHandler.sendRequest(request);
+        Response response = httpClientHandler.sendRequest(request, null);
         DefaultResponseBuilder defaultResponseBuilder = new DefaultResponseBuilder();
         defaultResponseBuilder.setSerializer(serializer);
         Object buildResponse = defaultResponseBuilder.buildResponse(response, responseType);

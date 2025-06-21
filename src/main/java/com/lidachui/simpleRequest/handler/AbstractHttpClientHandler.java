@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.core.annotation.Order;
 
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -46,8 +47,8 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
      * @return {@code Response}
      */
     @Override
-    public Response sendRequest(Request request) {
-        RequestContext requestContext = createRequestContext(request);
+    public Response sendRequest(Request request, Method method) {
+        RequestContext requestContext = createRequestContext(request, method);
         FilterChain filterChain = new FilterChain(getRequestFilters());
 
         try {
@@ -64,8 +65,7 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
             return response;
         } catch (Exception e) {
             // 异常处理
-            filterChain.doFilter(
-                    request, requestContext.getResponse(), requestContext, FilterPhase.ERROR);
+            filterChain.doFilter(request, requestContext.getResponse(), requestContext, FilterPhase.ERROR);
             throw e;
         }
     }
@@ -74,20 +74,24 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
      * 异步发送请求
      *
      * @param request 请求
+     * @param method
      * @return 可完成未来<response>
      */
     @Override
-    public CompletableFuture<Response> sendRequestAsync(Request request) {
-        return CompletableFuture.supplyAsync(() -> sendRequest(request));
+    public CompletableFuture<Response> sendRequestAsync(Request request, Method method) {
+        return CompletableFuture.supplyAsync(() -> sendRequest(request, method));
     }
 
     // 抽象方法，由子类实现具体的请求逻辑
     protected abstract Response executeRequest(Request request);
 
-    private RequestContext createRequestContext(Request request) {
+    private RequestContext createRequestContext(Request request, Method method) {
         RequestContext requestContext = new RequestContext();
         requestContext.setRequestId(RequestIdGenerator.generate());
         requestContext.setRequest(request);
+        if (method != null) {
+            requestContext.setMethod(method);
+        }
         return requestContext;
     }
 
@@ -96,22 +100,6 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
             return Collections.emptyList();
         }
 
-        return Optional.of(SpringUtil.getBeansOfType(AbstractRequestFilter.class))
-                .map(Map::values)
-                .map(
-                        filters ->
-                                filters.stream()
-                                        .sorted(
-                                                Comparator.comparing(
-                                                        filter ->
-                                                                Optional.ofNullable(
-                                                                                filter.getClass()
-                                                                                        .getAnnotation(
-                                                                                                Order
-                                                                                                        .class))
-                                                                        .map(Order::value)
-                                                                        .orElse(Integer.MAX_VALUE)))
-                                        .collect(Collectors.toList()))
-                .orElse(Collections.emptyList());
+        return Optional.of(SpringUtil.getBeansOfType(AbstractRequestFilter.class)).map(Map::values).map(filters -> filters.stream().sorted(Comparator.comparing(filter -> Optional.ofNullable(filter.getClass().getAnnotation(Order.class)).map(Order::value).orElse(Integer.MAX_VALUE))).collect(Collectors.toList())).orElse(Collections.emptyList());
     }
 }

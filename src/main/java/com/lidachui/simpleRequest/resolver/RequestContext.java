@@ -2,6 +2,8 @@ package com.lidachui.simpleRequest.resolver;
 
 import lombok.Data;
 
+import java.lang.reflect.Method;
+
 /**
  * RequestContext
  *
@@ -16,4 +18,6 @@ public class RequestContext {
     private Request request;
 
     private Response response;
+
+    private Method method;
 }

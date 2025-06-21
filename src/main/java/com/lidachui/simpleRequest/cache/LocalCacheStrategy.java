@@ -64,8 +64,10 @@ public class LocalCacheStrategy implements CacheStrategy {
     }
 
     @Override
-    public void put(String key, Object value, long ttl) {
-        cache.put(key, new CacheEntry(value, ttl));
+    public void put(String key, Object value, long expire, TimeUnit timeUnit) {
+        // 将过期时间转换为毫秒
+        long expireMillis = timeUnit.toMillis(expire);
+        cache.put(key, new CacheEntry(value, expireMillis));
         notifyListeners(new CacheEvent(key, value, CacheEventType.PUT));
         startCleanupTask();
     }
@@ -81,6 +83,8 @@ public class LocalCacheStrategy implements CacheStrategy {
     @Override
     public void removeAll() {
         cache.clear();
+        // 清空所有缓存后，停止清理任务
+        stopCleanupTask();
     }
 
     private void startCleanupTask() {
@@ -114,7 +118,24 @@ public class LocalCacheStrategy implements CacheStrategy {
     private void stopCleanupTask() {
         if (scheduledFuture != null) {
             scheduledFuture.cancel(false);
+            scheduledFuture = null;
             isTaskRunning.set(false);
+        }
+    }
+
+    /**
+     * 关闭清理任务线程池
+     */
+    public void shutdown() {
+        stopCleanupTask();
+        scheduler.shutdown();
+        try {
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                scheduler.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            scheduler.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -122,9 +143,9 @@ public class LocalCacheStrategy implements CacheStrategy {
         private final Object value;
         private final long expiryTime;
 
-        CacheEntry(Object value, long ttl) {
+        CacheEntry(Object value, long expireMillis) {
             this.value = value;
-            this.expiryTime = System.currentTimeMillis() + ttl;
+            this.expiryTime = System.currentTimeMillis() + expireMillis;
         }
 
         boolean isExpired(long currentTime) {

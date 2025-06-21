@@ -1,5 +1,7 @@
 package com.lidachui.simpleRequest.cache;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * CacheStrategy
  *
@@ -11,7 +13,7 @@ public interface CacheStrategy {
 
     Object get(String key);
 
-    void put(String key, Object value, long ttl);
+    void put(String key, Object value, long expire, TimeUnit timeUnit);
 
     void addListener(CacheEventListener listener);
 
