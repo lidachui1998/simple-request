@@ -11,6 +11,7 @@ import com.lidachui.simpleRequest.mock.MockGenerator;
 import com.lidachui.simpleRequest.resolver.*;
 import com.lidachui.simpleRequest.serialize.Serializer;
 import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
+import com.lidachui.simpleRequest.util.HashBasedCacheKeyGenerator;
 import com.lidachui.simpleRequest.util.ParamInfo;
 import com.lidachui.simpleRequest.util.SpringUtil;
 import com.lidachui.simpleRequest.validator.ResponseValidator;
@@ -113,7 +114,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
             if (cacheable != null) {
                 try {
                     CacheStrategy cacheStrategy = getBeanOrCreate(cacheable.strategy(), null);
-                    String cacheKey = generateCacheKey(method, args);
+                    String cacheKey = HashBasedCacheKeyGenerator.generatePureHashKey(method, args);
                     Object cachedResult = cacheStrategy.get(cacheKey);
                     if (cachedResult != null) {
                         return cachedResult;
@@ -703,11 +704,4 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
 
     public static final String FRAMEWORK_IDENTIFIER = "simple-request:cache"; // 框架特有标识
 
-    public static String generateCacheKey(Method method, Object[] args) {
-        String className = method.getDeclaringClass().getName(); // 获取类的全限定名
-        String methodName = method.getName(); // 获取方法名
-        String argsString = Arrays.toString(args); // 获取参数的字符串表示
-        // 生成唯一的缓存键
-        return FRAMEWORK_IDENTIFIER + ":" + className + ":" + methodName + ":" + argsString;
-    }
 }
