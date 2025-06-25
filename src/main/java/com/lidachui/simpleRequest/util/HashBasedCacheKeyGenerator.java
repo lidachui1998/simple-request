@@ -16,7 +16,7 @@ import java.util.Objects;
 
 public class HashBasedCacheKeyGenerator {
 
-    private static final String FRAMEWORK_IDENTIFIER = "MyFramework";
+    public static final String FRAMEWORK_IDENTIFIER = "simple-request:cache"; // 框架特有标识
 
     /**
      * 方案1：简单Hash - 最轻量级的实现
