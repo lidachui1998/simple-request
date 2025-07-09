@@ -1,7 +1,8 @@
 package com.lidachui.simpleRequest.util;
 
+import java.util.Set;
 import java.util.Arrays;
-import java.util.List;
+import java.util.HashSet;
 
 /**
  * 内容类型工具类
@@ -11,8 +12,8 @@ import java.util.List;
  * @version: 1.0
  */
 public class ContentTypeUtil {
-    
-    private static final List<String> BINARY_CONTENT_TYPES = Arrays.asList(
+
+    private static final Set<String> BINARY_PREFIXES = new HashSet<>(Arrays.asList(
         "application/octet-stream",
         "application/pdf",
         "image/",
@@ -20,21 +21,41 @@ public class ContentTypeUtil {
         "video/",
         "application/zip",
         "application/x-rar-compressed",
-        "application/x-tar"
-    );
-    
-    /**
-     * 判断内容类型是否为二进制
-     *
-     * @param contentType 内容类型
-     * @return 是否为二进制类型
-     */
+        "application/x-tar",
+        "application/x-7z-compressed",
+        "application/x-bzip2",
+        "application/x-gzip"
+    ));
+
+    private static final Set<String> TEXT_PREFIXES = new HashSet<>(Arrays.asList(
+        "text/",
+        "application/json",
+        "application/xml",
+        "application/javascript",
+        "application/x-www-form-urlencoded"
+    ));
+
     public static boolean isBinaryContentType(String contentType) {
-        if (contentType == null) {
+        if (contentType == null || contentType.trim().isEmpty()) {
             return false;
         }
-        
-        return BINARY_CONTENT_TYPES.stream()
-                .anyMatch(contentType::contains);
+
+        String lowerContentType = contentType.toLowerCase().trim();
+
+        // 先检查是否为明确的文本类型
+        for (String textPrefix : TEXT_PREFIXES) {
+            if (lowerContentType.startsWith(textPrefix)) {
+                return false;
+            }
+        }
+
+        // 再检查是否为二进制类型
+        for (String binaryPrefix : BINARY_PREFIXES) {
+            if (lowerContentType.startsWith(binaryPrefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
