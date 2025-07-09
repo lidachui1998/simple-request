@@ -8,9 +8,20 @@ import com.lidachui.simpleRequest.util.RequestAnnotationParser;
 
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.BeanWrapperImpl;
+import org.springframework.beans.PropertyAccessorFactory;
+import org.springframework.util.StringUtils;
 
+import java.beans.PropertyDescriptor;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -27,6 +38,17 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class HttpRequestBuilder implements RequestBuilder {
+
+    // 简单类型集合，这些类型直接转换为字符串
+    private static final Set<Class<?>> SIMPLE_TYPES = new HashSet<>(Arrays.asList(
+            String.class, Integer.class, Long.class, Double.class, Float.class,
+            Boolean.class, Character.class, Byte.class, Short.class,
+            int.class, long.class, double.class, float.class,
+            boolean.class, char.class, byte.class, short.class,
+            BigDecimal.class, BigInteger.class,
+            LocalDate.class, LocalDateTime.class, LocalTime.class,
+            java.util.Date.class, java.sql.Date.class, java.sql.Timestamp.class
+    ));
 
     @Override
     public Request buildRequest(Method method, Object[] args, Object... params) {
@@ -71,7 +93,41 @@ public class HttpRequestBuilder implements RequestBuilder {
         annotationTypeMap.put(HeaderParam.class, annotation -> ((HeaderParam) annotation).value());
         annotationTypeMap.put(BodyParam.class, annotation -> "body");
         annotationTypeMap.put(Host.class, annotation -> "host");
-        return AnnotationParamExtractor.extractParamsWithTypes(method, args, annotationTypeMap);
+
+        Map<Class<? extends Annotation>, Map<String, ParamInfo>> result =
+                AnnotationParamExtractor.extractParamsWithTypes(method, args, annotationTypeMap);
+
+        // 处理没有注解的参数，将其作为QueryParam处理
+        handleUnannotatedParams(method, args, result);
+
+        return result;
+    }
+
+    /**
+     * 处理没有注解的参数，将其作为QueryParam处理
+     */
+    private void handleUnannotatedParams(Method method, Object[] args,
+            Map<Class<? extends Annotation>, Map<String, ParamInfo>> result) {
+
+        java.lang.reflect.Parameter[] parameters = method.getParameters();
+        Map<String, ParamInfo> queryParams = result.computeIfAbsent(QueryParam.class, k -> new HashMap<>());
+
+        for (int i = 0; i < parameters.length && i < args.length; i++) {
+            java.lang.reflect.Parameter parameter = parameters[i];
+
+            // 检查参数是否已经有注解处理了
+            boolean hasAnnotation = parameter.isAnnotationPresent(PathVariable.class) ||
+                                  parameter.isAnnotationPresent(QueryParam.class) ||
+                                  parameter.isAnnotationPresent(HeaderParam.class) ||
+                                  parameter.isAnnotationPresent(BodyParam.class) ||
+                                  parameter.isAnnotationPresent(Host.class);
+
+            if (!hasAnnotation && args[i] != null) {
+                String paramName = parameter.getName();
+                ParamInfo paramInfo = new ParamInfo(parameter.getType(), args[i]);
+                queryParams.put(paramName, paramInfo);
+            }
+        }
     }
 
     private Pair<String, Map<String, String>> constructUrl(
@@ -155,7 +211,8 @@ public class HttpRequestBuilder implements RequestBuilder {
                             } else {
                                 queryParams.putIfAbsent(key, "");
                             }
-                        } else if (value != null) {
+                        } else if (isSimpleType(value)) {
+                            // 简单类型直接转换
                             String stringValue = value.toString();
                             queryParams.putIfAbsent(key, stringValue);
 
@@ -163,11 +220,117 @@ public class HttpRequestBuilder implements RequestBuilder {
                             queryEntity.setName(key);
                             queryEntity.setValue(stringValue);
                             queryEntities.add(queryEntity);
+                        } else {
+                            // 使用Spring的BeanWrapper解析实体类对象
+                            Map<String, Object> entityFields = extractEntityFieldsUsingSpring(value);
+                            entityFields.forEach((fieldName, fieldValue) -> {
+                                if (fieldValue != null) {
+                                    String stringValue = fieldValue.toString();
+                                    queryParams.putIfAbsent(fieldName, stringValue);
+
+                                    QueryEntity queryEntity = new QueryEntity();
+                                    queryEntity.setName(fieldName);
+                                    queryEntity.setValue(stringValue);
+                                    queryEntities.add(queryEntity);
+                                }
+                            });
                         }
                     }
                 });
 
         return queryParams;
+    }
+
+    /**
+     * 检查对象是否为简单类型
+     */
+    private boolean isSimpleType(Object value) {
+        if (value == null) {
+            return true;
+        }
+
+        Class<?> clazz = value.getClass();
+
+        // 使用Spring的BeanUtils判断简单类型
+        if (BeanUtils.isSimpleProperty(clazz)) {
+            return true;
+        }
+
+        // 额外检查一些Spring没有包含的类型
+        if (SIMPLE_TYPES.contains(clazz)) {
+            return true;
+        }
+
+        // 检查是否为枚举
+        if (clazz.isEnum()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 使用Spring的BeanWrapper提取实体类的字段
+     */
+    private Map<String, Object> extractEntityFieldsUsingSpring(Object entity) {
+        Map<String, Object> fields = new HashMap<>();
+
+        if (entity == null) {
+            return fields;
+        }
+
+        try {
+            // 使用Spring的BeanWrapper来处理Bean属性
+            BeanWrapper beanWrapper = PropertyAccessorFactory.forBeanPropertyAccess(entity);
+            PropertyDescriptor[] propertyDescriptors = beanWrapper.getPropertyDescriptors();
+
+            for (PropertyDescriptor pd : propertyDescriptors) {
+                String propertyName = pd.getName();
+
+                // 跳过class属性和只写属性
+                if ("class".equals(propertyName) || pd.getReadMethod() == null) {
+                    continue;
+                }
+
+                try {
+                    Object value = beanWrapper.getPropertyValue(propertyName);
+
+                    if (value != null) {
+                        if (isSimpleType(value)) {
+                            fields.put(propertyName, value);
+                        } else if (value instanceof Collection) {
+                            // 集合类型处理
+                            Collection<?> collection = (Collection<?>) value;
+                            if (!collection.isEmpty()) {
+                                // 检查集合中的元素是否为简单类型
+                                Object firstElement = collection.iterator().next();
+                                if (isSimpleType(firstElement)) {
+                                    // 如果是简单类型的集合，用逗号分隔
+                                    String joinedValue = collection.stream()
+                                            .filter(Objects::nonNull)
+                                            .map(Object::toString)
+                                            .collect(Collectors.joining(","));
+                                    if (StringUtils.hasText(joinedValue)) {
+                                        fields.put(propertyName, joinedValue);
+                                    }
+                                }
+                            }
+                        } else if (value instanceof Map) {
+                            // Map类型暂不处理，避免复杂性
+                            log.debug("跳过Map类型属性: {}", propertyName);
+                        }
+                        // 嵌套对象暂不处理，避免无限递归
+                    }
+                } catch (Exception e) {
+                    log.warn("无法访问属性: {}, 错误: {}", propertyName, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("使用BeanWrapper解析实体类失败: {}", e.getMessage(), e);
+            // 如果Spring解析失败，返回空Map而不是抛异常
+        }
+
+        return fields;
     }
 
     private Map<String, String> constructHeaders(
