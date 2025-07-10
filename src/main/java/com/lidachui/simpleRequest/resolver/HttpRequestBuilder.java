@@ -3,6 +3,7 @@ package com.lidachui.simpleRequest.resolver;
 import com.lidachui.simpleRequest.annotation.*;
 import com.lidachui.simpleRequest.entity.QueryEntity;
 import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
+import com.lidachui.simpleRequest.util.ImprovedPlaceholderReplacer;
 import com.lidachui.simpleRequest.util.ParamInfo;
 import com.lidachui.simpleRequest.util.RequestAnnotationParser;
 
@@ -10,7 +11,6 @@ import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.BeanWrapper;
-import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.beans.PropertyAccessorFactory;
 import org.springframework.util.StringUtils;
 
@@ -25,8 +25,6 @@ import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -38,6 +36,9 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class HttpRequestBuilder implements RequestBuilder {
+
+    private static final ImprovedPlaceholderReplacer placeholderReplacer =
+            new ImprovedPlaceholderReplacer();
 
     // 简单类型集合，这些类型直接转换为字符串
     private static final Set<Class<?>> SIMPLE_TYPES = new HashSet<>(Arrays.asList(
@@ -139,7 +140,7 @@ public class HttpRequestBuilder implements RequestBuilder {
         // 替换路径变量
         Set<String> consumedKeys = new HashSet<>();
         String path =
-                replacePlaceholders(
+                placeholderReplacer.replacePlaceholdersWithDefaults(
                         restRequest.path(),
                         params.getOrDefault(PathVariable.class, Collections.emptyMap()),
                         consumedKeys);
@@ -181,7 +182,7 @@ public class HttpRequestBuilder implements RequestBuilder {
             String value = entry.getValue();
 
             // 替换 value 的占位符
-            String replacedValue = replacePlaceholders(value, dynamicParams, consumedKeys);
+            String replacedValue = placeholderReplacer.replacePlaceholders(value, dynamicParams, consumedKeys);
 
             // 更新 map 中的 value
             entry.setValue(replacedValue);
@@ -262,11 +263,7 @@ public class HttpRequestBuilder implements RequestBuilder {
         }
 
         // 检查是否为枚举
-        if (clazz.isEnum()) {
-            return true;
-        }
-
-        return false;
+        return clazz.isEnum();
     }
 
     /**
@@ -344,7 +341,7 @@ public class HttpRequestBuilder implements RequestBuilder {
         Map<String, ParamInfo> headerParams =
                 params.getOrDefault(HeaderParam.class, Collections.emptyMap());
         Set<String> consumedKeys = new HashSet<>();
-        headers.replaceAll((key, value) -> replacePlaceholders(value, headerParams, consumedKeys));
+        headers.replaceAll((key, value) -> placeholderReplacer.replacePlaceholdersWithDefaults(value, headerParams, consumedKeys));
 
         // 添加未消费的动态 Header 参数
         headerParams.forEach(
@@ -362,55 +359,6 @@ public class HttpRequestBuilder implements RequestBuilder {
         Map<String, ParamInfo> bodyParams =
                 params.getOrDefault(BodyParam.class, Collections.emptyMap());
         return bodyParams.isEmpty() ? null : bodyParams.values().iterator().next().getValue();
-    }
-
-    private String replacePlaceholders(
-            String template, Map<String, ParamInfo> params, Set<String> consumedKeys) {
-
-        if (template == null || params.isEmpty()) {
-            return template;
-        }
-
-        StringBuilder result = new StringBuilder();
-        int cursor = 0;
-
-        Pattern pattern = Pattern.compile("\\$\\{([a-zA-Z0-9_]+)\\}");
-        Matcher matcher = pattern.matcher(template);
-
-        while (matcher.find()) {
-            result.append(template, cursor, matcher.start());
-            String key = matcher.group(1);
-            String replacement = "";
-            if (params.containsKey(key)) {
-                ParamInfo paramInfo = params.get(key);
-                Object value = paramInfo.getValue();
-
-                if (value instanceof Collection) {
-                    Collection<?> collection = (Collection<?>) value;
-                    if (!collection.isEmpty()) {
-                        replacement = collection.iterator().next().toString();
-                    } else {
-                        replacement = ""; // 或者根据需要处理空集合
-                    }
-                } else if (value != null) {
-                    replacement = value.toString();
-                } else {
-                    replacement = ""; // 处理 null 值的情况
-                }
-            } else {
-                replacement = matcher.group();
-            }
-
-            result.append(replacement);
-
-            if (params.containsKey(key)) {
-                consumedKeys.add(key);
-            }
-            cursor = matcher.end();
-        }
-        result.append(template, cursor, template.length());
-
-        return result.toString();
     }
 
     private String buildUrl(String baseUrl, String path, List<QueryEntity> queryEntities) {

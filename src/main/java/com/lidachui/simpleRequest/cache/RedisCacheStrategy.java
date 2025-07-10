@@ -1,7 +1,6 @@
 package com.lidachui.simpleRequest.cache;
 
 
-import static com.lidachui.simpleRequest.core.HttpClientProxyFactory.FRAMEWORK_IDENTIFIER;
 
 import com.lidachui.simpleRequest.constants.CacheEventType;
 
@@ -17,6 +16,8 @@ import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Resource;
 import org.springframework.util.CollectionUtils;
+
+import static com.lidachui.simpleRequest.util.HashBasedCacheKeyGenerator.FRAMEWORK_IDENTIFIER;
 
 /**
  * RedisCacheStrategy

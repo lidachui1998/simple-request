@@ -237,6 +237,6 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
      * @return Map 表单字段和值
      */
     private Map parseJsonToMap(Request request, String json) throws IOException {
-        return request.getSerializer().deserialize(ObjectUtil.objectToByteArray(json), Map.class);
+        return request.getSerializer().deserialize(ObjectUtil.objectToByteArrayUniversal(json), Map.class);
     }
 }

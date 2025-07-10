@@ -702,6 +702,5 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         return Void.TYPE.equals(returnType);
     }
 
-    public static final String FRAMEWORK_IDENTIFIER = "simple-request:cache"; // 框架特有标识
 
 }
