@@ -10,10 +10,7 @@ import com.lidachui.simpleRequest.handler.HttpClientHandler;
 import com.lidachui.simpleRequest.mock.MockGenerator;
 import com.lidachui.simpleRequest.resolver.*;
 import com.lidachui.simpleRequest.serialize.Serializer;
-import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
-import com.lidachui.simpleRequest.util.HashBasedCacheKeyGenerator;
-import com.lidachui.simpleRequest.util.ParamInfo;
-import com.lidachui.simpleRequest.util.SpringUtil;
+import com.lidachui.simpleRequest.util.*;
 import com.lidachui.simpleRequest.validator.ResponseValidator;
 import com.lidachui.simpleRequest.validator.ValidationResult;
 
@@ -381,7 +378,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
     private static void returnHeaders(Method method, Object[] args, Response response) {
         Map<String, String> headers = response.getHeaders();
         Map<String, ParamInfo> responseHeaderParams =
-                AnnotationParamExtractor.extractParamsWithType(
+                AnnotationParamExtractorWithSpring.extractParamsWithType(
                         method,
                         args,
                         ResponseHeader.class,

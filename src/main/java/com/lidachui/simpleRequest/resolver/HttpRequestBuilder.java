@@ -2,10 +2,7 @@ package com.lidachui.simpleRequest.resolver;
 
 import com.lidachui.simpleRequest.annotation.*;
 import com.lidachui.simpleRequest.entity.QueryEntity;
-import com.lidachui.simpleRequest.util.AnnotationParamExtractor;
-import com.lidachui.simpleRequest.util.ImprovedPlaceholderReplacer;
-import com.lidachui.simpleRequest.util.ParamInfo;
-import com.lidachui.simpleRequest.util.RequestAnnotationParser;
+import com.lidachui.simpleRequest.util.*;
 
 import javafx.util.Pair;
 import lombok.extern.slf4j.Slf4j;
@@ -96,7 +93,7 @@ public class HttpRequestBuilder implements RequestBuilder {
         annotationTypeMap.put(Host.class, annotation -> "host");
 
         Map<Class<? extends Annotation>, Map<String, ParamInfo>> result =
-                AnnotationParamExtractor.extractParamsWithTypes(method, args, annotationTypeMap);
+                AnnotationParamExtractorWithSpring.extractParamsWithTypes(method, args, annotationTypeMap);
 
         // 处理没有注解的参数，将其作为QueryParam处理
         handleUnannotatedParams(method, args, result);
