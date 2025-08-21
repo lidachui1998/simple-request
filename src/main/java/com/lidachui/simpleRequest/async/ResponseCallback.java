@@ -8,6 +8,7 @@ package com.lidachui.simpleRequest.async;
  * @version: 1.0
  */
 public interface ResponseCallback<T> {
+
     void onSuccess(T result);
 
     void onFailure(Throwable throwable);

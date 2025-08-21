@@ -93,7 +93,7 @@ public class HttpRequestBuilder implements RequestBuilder {
         annotationTypeMap.put(Host.class, annotation -> "host");
 
         Map<Class<? extends Annotation>, Map<String, ParamInfo>> result =
-                AnnotationParamExtractorWithSpring.extractParamsWithTypes(method, args, annotationTypeMap);
+                AnnotationParamExtractor.extractParamsWithTypes(method, args, annotationTypeMap);
 
         // 处理没有注解的参数，将其作为QueryParam处理
         handleUnannotatedParams(method, args, result);
@@ -220,7 +220,7 @@ public class HttpRequestBuilder implements RequestBuilder {
                             queryEntities.add(queryEntity);
                         } else {
                             // 使用Spring的BeanWrapper解析实体类对象
-                            Map<String, Object> entityFields = extractEntityFieldsUsingSpring(value);
+                            Map<String, Object> entityFields = extractEntityFieldsBeanWrapper(value);
                             entityFields.forEach((fieldName, fieldValue) -> {
                                 if (fieldValue != null) {
                                     String stringValue = fieldValue.toString();
@@ -266,7 +266,7 @@ public class HttpRequestBuilder implements RequestBuilder {
     /**
      * 使用Spring的BeanWrapper提取实体类的字段
      */
-    private Map<String, Object> extractEntityFieldsUsingSpring(Object entity) {
+    private Map<String, Object> extractEntityFieldsBeanWrapper(Object entity) {
         Map<String, Object> fields = new HashMap<>();
 
         if (entity == null) {

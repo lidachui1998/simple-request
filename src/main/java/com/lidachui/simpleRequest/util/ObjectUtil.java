@@ -114,4 +114,17 @@ public class ObjectUtil {
         }
     }
 
+    /**
+     * 创建Bean实例
+     *
+     * @param beanClass Bean类
+     * @return Bean实例
+     */
+    public static <T> T createInstance(Class<T> beanClass) {
+        try {
+            return beanClass.getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create instance of " + beanClass.getName(), e);
+        }
+    }
 }

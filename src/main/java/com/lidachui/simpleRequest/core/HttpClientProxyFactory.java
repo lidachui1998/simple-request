@@ -81,10 +81,10 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
     /**
      * 创建方法拦截器
      *
-     * @param clientInterface   客户端接口类
-     * @param baseUrl           基础URL
+     * @param clientInterface 客户端接口类
+     * @param baseUrl 基础URL
      * @param responseValidator 响应验证器
-     * @param serializer        序列化器
+     * @param serializer 序列化器
      * @return 方法拦截器
      */
     private MethodInterceptor createMethodInterceptor(
@@ -116,13 +116,19 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
                     if (cachedResult != null) {
                         return cachedResult;
                     }
+                    // 获取当前方法的响应验证器
+                    ResponseValidator currentValidator = responseValidator;
+                    ResponseValid annotation = method.getAnnotation(ResponseValid.class);
+                    if (annotation != null) {
+                        currentValidator = getBeanOrCreate(annotation.responseValidator(), null);
+                    }
                     Object result =
                             handleRestRequest(
                                     clientInterface,
                                     method,
                                     args,
                                     baseUrl,
-                                    responseValidator,
+                                    currentValidator,
                                     serializer);
                     cacheStrategy.put(cacheKey, result, cacheable.expire(), cacheable.timeUnit());
                     return result;
@@ -138,12 +144,12 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
     /**
      * 处理Rest请求
      *
-     * @param clientInterface   客户端接口类
-     * @param method            方法
-     * @param args              参数
-     * @param baseUrl           基础URL
+     * @param clientInterface 客户端接口类
+     * @param method 方法
+     * @param args 参数
+     * @param baseUrl 基础URL
      * @param responseValidator 响应验证器
-     * @param serializer        序列化器
+     * @param serializer 序列化器
      * @return 请求结果
      */
     private Object handleRestRequest(
@@ -193,11 +199,11 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 处理重试请求
      *
      * @param httpClientHandler HttpClientHandler实例
-     * @param request           请求对象
+     * @param request 请求对象
      * @param responseValidator 响应验证器
-     * @param retry             重试注解
-     * @param method            方法
-     * @param args              参数
+     * @param retry 重试注解
+     * @param method 方法
+     * @param args 参数
      * @return 请求结果
      */
     private Object retryRequest(
@@ -235,7 +241,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 调整重试延迟
      *
      * @param backoffStrategy 退避策略
-     * @param delay           当前延迟
+     * @param delay 当前延迟
      * @return 调整后的延迟
      */
     private long adjustDelay(BackoffStrategy backoffStrategy, long delay) {
@@ -263,10 +269,10 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 发送请求
      *
      * @param httpClientHandler HttpClientHandler实例
-     * @param request           请求对象
+     * @param request 请求对象
      * @param responseValidator 响应验证器
-     * @param method            方法
-     * @param args              参数
+     * @param method 方法
+     * @param args 参数
      * @return 请求结果
      */
     private Object sendRequest(
@@ -289,11 +295,11 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 处理异步请求
      *
      * @param httpClientHandler HttpClientHandler实例
-     * @param request           请求对象
+     * @param request 请求对象
      * @param responseValidator 响应验证器
-     * @param method            方法
-     * @param args              参数
-     * @param responseBuilder   响应构建器
+     * @param method 方法
+     * @param args 参数
+     * @param responseBuilder 响应构建器
      * @return null
      */
     private Object handleAsyncRequest(
@@ -311,7 +317,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         int maxRetries = retry != null ? retry.maxRetries() : 0;
         long delay = retry != null ? retry.delay() : 1000;
         Class<? extends Throwable>[] retryFor =
-                retry != null ? retry.retryFor() : new Class[]{Exception.class};
+                retry != null ? retry.retryFor() : new Class[] {Exception.class};
         BackoffStrategy backoffStrategy = retry != null ? retry.backoff() : BackoffStrategy.FIXED;
 
         sendRequestWithRetryAsync(
@@ -324,7 +330,8 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
                 maxRetries,
                 delay,
                 retryFor,
-                backoffStrategy, method);
+                backoffStrategy,
+                method);
         return null;
     }
 
@@ -332,11 +339,11 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 处理同步请求
      *
      * @param httpClientHandler HttpClientHandler实例
-     * @param request           请求对象
+     * @param request 请求对象
      * @param responseValidator 响应验证器
-     * @param method            方法
-     * @param args              参数
-     * @param responseBuilder   响应构建器
+     * @param method 方法
+     * @param args 参数
+     * @param responseBuilder 响应构建器
      * @return 请求结果
      */
     private Object handleSyncRequest(
@@ -358,7 +365,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 获取响应构建器
      *
      * @param httpClientHandler HttpClientHandler实例
-     * @param request           请求对象
+     * @param request 请求对象
      * @return 响应构建器
      */
     private static AbstractResponseBuilder getResponseBuilder(
@@ -371,14 +378,14 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
     /**
      * 返回响应头
      *
-     * @param method   方法
-     * @param args     参数
+     * @param method 方法
+     * @param args 参数
      * @param response 响应对象
      */
     private static void returnHeaders(Method method, Object[] args, Response response) {
         Map<String, String> headers = response.getHeaders();
         Map<String, ParamInfo> responseHeaderParams =
-                AnnotationParamExtractorWithSpring.extractParamsWithType(
+                AnnotationParamExtractor.extractParamsWithType(
                         method,
                         args,
                         ResponseHeader.class,
@@ -392,8 +399,8 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
     /**
      * 将响应头注入到参数中
      *
-     * @param method  方法
-     * @param args    参数
+     * @param method 方法
+     * @param args 参数
      * @param headers 响应头
      */
     private static void injectHeadersIntoParameters(
@@ -419,7 +426,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 判断是否应该重试
      *
      * @param throwable 异常
-     * @param retryFor  重试的异常类型
+     * @param retryFor 重试的异常类型
      * @return 是否应该重试
      */
     private boolean shouldRetry(Throwable throwable, Class<? extends Throwable>[] retryFor) {
@@ -435,8 +442,8 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 添加认证信息到请求中
      *
      * @param clientInterface 客户端接口类
-     * @param method          方法
-     * @param request         请求对象
+     * @param method 方法
+     * @param request 请求对象
      */
     private <T> void addAuth(Class<T> clientInterface, Method method, Request request) {
         Auth auth = method.getAnnotation(Auth.class);
@@ -453,12 +460,12 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 获取或创建Bean实例
      *
      * @param beanClass Bean类
-     * @param beanName  Bean名称
+     * @param beanName Bean名称
      * @return Bean实例
      */
     private <T> T getBeanOrCreate(Class<T> beanClass, String beanName) {
         if (!SpringUtil.isSpringContextActive()) {
-            return createInstance(beanClass);
+            return ObjectUtil.createInstance(beanClass);
         }
         try {
             if (StringUtils.hasLength(beanName)) {
@@ -467,24 +474,10 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
                 return getApplicationContext().getBean(beanClass);
             }
         } catch (NoSuchBeanDefinitionException e) {
-            log.error("No bean of type " + beanClass.getName() + " found.", e);
-            T instance = createInstance(beanClass);
+            log.error("No bean of type {} found.", beanClass.getName(), e);
+            T instance = ObjectUtil.createInstance(beanClass);
             SpringUtil.registerBean(getApplicationContext(), beanClass);
             return instance;
-        }
-    }
-
-    /**
-     * 创建Bean实例
-     *
-     * @param beanClass Bean类
-     * @return Bean实例
-     */
-    private <T> T createInstance(Class<T> beanClass) {
-        try {
-            return beanClass.getDeclaredConstructor().newInstance();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to create instance of " + beanClass.getName(), e);
         }
     }
 
@@ -512,8 +505,8 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 验证响应
      *
      * @param responseValidator 响应验证器
-     * @param request           请求对象
-     * @param response          响应对象
+     * @param request 请求对象
+     * @param response 响应对象
      */
     private void validateResponse(
             ResponseValidator responseValidator, Request request, Response response) {
@@ -527,7 +520,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 检查返回类型和参数
      *
      * @param method 方法
-     * @param args   参数
+     * @param args 参数
      */
     private void checkReturnTypeAndParameters(Method method, Object[] args) {
         if (method.getReturnType() != void.class) {
@@ -546,7 +539,7 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 查找回调参数
      *
      * @param method 方法
-     * @param args   参数
+     * @param args 参数
      * @return 回调参数
      */
     private ResponseCallback findCallbackParameter(Method method, Object[] args) {
@@ -582,16 +575,16 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
      * 异步发送请求并重试
      *
      * @param httpClientHandler HttpClientHandler实例
-     * @param request           请求对象
+     * @param request 请求对象
      * @param responseValidator 响应验证器
-     * @param callback          回调
-     * @param responseBuilder   响应构建器
-     * @param callbackType      回调类型
-     * @param maxRetries        最大重试次数
-     * @param delay             延迟
-     * @param retryFor          重试的异常类型
-     * @param backoffStrategy   退避策略
-     * @param method
+     * @param callback 回调
+     * @param responseBuilder 响应构建器
+     * @param callbackType 回调类型
+     * @param maxRetries 最大重试次数
+     * @param delay 延迟
+     * @param retryFor 重试的异常类型
+     * @param backoffStrategy 退避策略
+     * @param method 方法
      */
     private void sendRequestWithRetryAsync(
             HttpClientHandler httpClientHandler,
@@ -603,7 +596,8 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
             int maxRetries,
             long delay,
             Class<? extends Throwable>[] retryFor,
-            BackoffStrategy backoffStrategy, Method method) {
+            BackoffStrategy backoffStrategy,
+            Method method) {
         CompletableFuture<Response> future = httpClientHandler.sendRequestAsync(request, method);
 
         future.thenAccept(
@@ -626,7 +620,8 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
                                         request,
                                         responseValidator,
                                         callbackType,
-                                        responseBuilder, method);
+                                        responseBuilder,
+                                        method);
                             }
                         })
                 .exceptionally(
@@ -642,7 +637,8 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
                                     request,
                                     responseValidator,
                                     callbackType,
-                                    responseBuilder, method);
+                                    responseBuilder,
+                                    method);
                             return null;
                         });
     }
@@ -650,18 +646,18 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
     /**
      * 处理请求失败
      *
-     * @param throwable         异常
-     * @param callback          回调
-     * @param maxRetries        最大重试次数
-     * @param delay             延迟
-     * @param retryFor          重试的异常类型
-     * @param backoffStrategy   退避策略
+     * @param throwable 异常
+     * @param callback 回调
+     * @param maxRetries 最大重试次数
+     * @param delay 延迟
+     * @param retryFor 重试的异常类型
+     * @param backoffStrategy 退避策略
      * @param httpClientHandler HttpClientHandler实例
-     * @param request           请求对象
+     * @param request 请求对象
      * @param responseValidator 响应验证器
-     * @param callbackType      回调类型
-     * @param responseBuilder   响应构建器
-     * @param method
+     * @param callbackType 回调类型
+     * @param responseBuilder 响应构建器
+     * @param method 方法
      */
     private void handleFailure(
             Throwable throwable,
@@ -674,7 +670,8 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
             Request request,
             ResponseValidator responseValidator,
             Type callbackType,
-            AbstractResponseBuilder responseBuilder, Method method) {
+            AbstractResponseBuilder responseBuilder,
+            Method method) {
         if (maxRetries > 0 && shouldRetry(throwable, retryFor)) {
             delay = adjustDelay(backoffStrategy, delay);
             sleepBeforeRetry(delay);
@@ -688,7 +685,8 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
                     maxRetries - 1,
                     delay,
                     retryFor,
-                    backoffStrategy, method);
+                    backoffStrategy,
+                    method);
         } else {
             callback.onFailure(throwable);
         }
@@ -698,6 +696,4 @@ public class HttpClientProxyFactory extends AbstractClientProxyFactory {
         Type returnType = method.getGenericReturnType();
         return Void.TYPE.equals(returnType);
     }
-
-
 }
