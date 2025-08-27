@@ -11,13 +11,14 @@ import lombok.Getter;
  */
 @Getter
 public enum RequestClientType {
-    REST_TEMPLATE("restTemplateHandler"),
-    OKHTTP("okhttpClientHandler"),
-    HESSIAN("hessianClientProxyFactory");
+    REST_TEMPLATE("http", "restTemplateHandler"),
+    OKHTTP("http","okhttpClientHandler");
 
+    private final String type;
     private final String beanName;
 
-    RequestClientType(String beanName) {
+    RequestClientType(String type, String beanName) {
+        this.type = type;
         this.beanName = beanName;
     }
 
