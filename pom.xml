@@ -74,7 +74,7 @@
         <repository>
             <id>reposilite-repository-releases</id>
             <name>Reposilite Repository</name>
-            <url>http://47.96.110.50:8888/releases</url>
+            <url>https://reposilite.bjca.xyz/releases</url>
         </repository>
     </distributionManagement>
 
