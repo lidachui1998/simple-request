@@ -8,16 +8,22 @@ import com.lidachui.simpleRequest.serialize.Serializer;
 import com.lidachui.simpleRequest.util.ContentTypeUtil;
 
 import com.lidachui.simpleRequest.util.ObjectUtil;
-import kotlin.Pair;
 
 import okhttp3.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.util.StreamUtils;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.beans.BeanInfo;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
@@ -39,42 +45,35 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
 
     @Override
     protected Response executeRequest(Request request) {
-        // 构建 OkHttp 请求
         okhttp3.Request.Builder requestBuilder =
                 new okhttp3.Request.Builder().url(request.getUrl());
 
         try {
             // 设置请求头
             if (request.getHeaders() != null) {
-                Set<Map.Entry<String, String>> set = request.getHeaders().entrySet();
-                for (Object o : set) {
-                    Map.Entry entry = (Map.Entry) o;
-                    String key = (String) entry.getKey();
-                    String value = (String) entry.getValue();
-                    requestBuilder.addHeader(key, value);
-                }
+                request.getHeaders().forEach(requestBuilder::addHeader);
             }
 
             // 构建请求体
             RequestBody requestBody;
             Map<String, String> headers = request.getHeaders();
-            // 根据 Content-Type 来决定请求体的构建方式
-            if ("application/x-www-form-urlencoded"
-                    .equalsIgnoreCase(headers.getOrDefault("Content-Type", ""))) {
+            String contentType = headers != null ? headers.getOrDefault("Content-Type", "") : "";
+            if ("application/x-www-form-urlencoded".equalsIgnoreCase(contentType)) {
                 requestBody = buildFormRequestBody(request, request.getBody());
             } else {
                 requestBody = buildRequestBody(request.getBody());
             }
 
+            // 设置 HTTP 方法
             switch (request.getMethod()) {
                 case GET:
                     requestBuilder.get();
                     break;
                 case POST:
-                    requestBuilder.post(requestBody);
+                    requestBuilder.post(requestBody != null ? requestBody : new FormBody.Builder().build());
                     break;
                 case PUT:
-                    requestBuilder.put(requestBody);
+                    requestBuilder.put(requestBody != null ? requestBody : new FormBody.Builder().build());
                     break;
                 case DELETE:
                     if (requestBody != null) {
@@ -84,33 +83,57 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
                     }
                     break;
                 default:
-                    throw new UnsupportedOperationException(
-                            "Unsupported HTTP method: " + request.getMethod());
+                    throw new UnsupportedOperationException("Unsupported HTTP method: " + request.getMethod());
             }
 
-            // 执行请求并处理响应
-            okhttp3.Response response = client.newCall(requestBuilder.build()).execute();
-            if (response.isSuccessful()) {
+            // 执行请求
+            try (okhttp3.Response response = client.newCall(requestBuilder.build()).execute()) {
+
                 Map<String, String> headersMap = new HashMap<>();
                 Headers responseHeaders = response.headers();
-                for (Pair<? extends String, ? extends String> header : responseHeaders) {
-                    headersMap.put(header.getFirst(), header.getSecond());
+                for (String name : responseHeaders.names()) {
+                    headersMap.put(name, responseHeaders.get(name));
                 }
 
-                // 先读取ResponseBody到字节数组，这样可以防止多次读取OkHttp响应体导致的异常
-                byte[] bodyBytes = response.body() != null ? response.body().bytes() : new byte[0];
+                if (response.isSuccessful()) {
+                    byte[] bodyBytes = response.body() != null ? response.body().bytes() : new byte[0];
 
-                // 根据Content-Type判断是否为二进制数据
-                String contentType = headersMap.getOrDefault("Content-Type", "");
-                boolean isBinaryContent = ContentTypeUtil.isBinaryContentType(contentType);
+                    String ct = headersMap.entrySet().stream()
+                            .filter(e -> "Content-Type".equalsIgnoreCase(e.getKey()))
+                            .map(Map.Entry::getValue)
+                            .findFirst()
+                            .orElse("");
 
-                // 保存原始字节数组到一个自定义的响应对象
-                return new ByteResponse(bodyBytes, headersMap, isBinaryContent);
-            } else {
-                throw new IOException("Request failed with status code: " + response.code());
+                    boolean isBinary = ContentTypeUtil.isBinaryContentType(ct);
+                    return new ByteResponse(bodyBytes, headersMap, isBinary);
+                } else{
+                    String responseBody = "";
+                    if (response.body() != null) {
+                        try (InputStream is = response.body().byteStream()) {
+                            responseBody = StreamUtils.copyToString(is, StandardCharsets.UTF_8);
+                        }
+                    }
+                    // 将 okhttp3.Headers -> Map<String, List<String>> -> HttpHeaders
+                    HttpHeaders httpHeaders = new HttpHeaders();
+                    Map<String, List<String>> multiMap = response.headers().toMultimap();
+                    multiMap.forEach((k, v) -> {
+                        if (k != null) {
+                            httpHeaders.put(k, v); // HttpHeaders 接受 List<String>
+                        }
+                    });
+                    throw new HttpClientErrorException(
+                            HttpStatus.valueOf(response.code()),
+                            response.message(),
+                            httpHeaders,
+                            responseBody.getBytes(StandardCharsets.UTF_8),
+                            StandardCharsets.UTF_8
+                    );
+                }
             }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Network request failed", e);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Unexpected error executing request", e);
         }
     }
 
