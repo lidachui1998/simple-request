@@ -65,7 +65,8 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
             return response;
         } catch (Exception e) {
             // 异常处理
-            filterChain.doFilter(request, requestContext.getResponse(), requestContext, FilterPhase.ERROR);
+            filterChain.doFilter(
+                    request, requestContext.getResponse(), requestContext, FilterPhase.ERROR, e);
             throw e;
         }
     }
@@ -100,6 +101,22 @@ public abstract class AbstractHttpClientHandler implements HttpClientHandler {
             return Collections.emptyList();
         }
 
-        return Optional.of(SpringUtil.getBeansOfType(AbstractRequestFilter.class)).map(Map::values).map(filters -> filters.stream().sorted(Comparator.comparing(filter -> Optional.ofNullable(filter.getClass().getAnnotation(Order.class)).map(Order::value).orElse(Integer.MAX_VALUE))).collect(Collectors.toList())).orElse(Collections.emptyList());
+        return Optional.of(SpringUtil.getBeansOfType(AbstractRequestFilter.class))
+                .map(Map::values)
+                .map(
+                        filters ->
+                                filters.stream()
+                                        .sorted(
+                                                Comparator.comparing(
+                                                        filter ->
+                                                                Optional.ofNullable(
+                                                                                filter.getClass()
+                                                                                        .getAnnotation(
+                                                                                                Order
+                                                                                                        .class))
+                                                                        .map(Order::value)
+                                                                        .orElse(Integer.MAX_VALUE)))
+                                        .collect(Collectors.toList()))
+                .orElse(Collections.emptyList());
     }
 }
