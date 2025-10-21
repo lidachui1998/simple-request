@@ -11,7 +11,6 @@ import com.lidachui.simpleRequest.util.ExceptionUtil;
 import com.lidachui.simpleRequest.util.ObjectUtil;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import kotlin.Pair;
 
 import okhttp3.*;
 import org.springframework.http.HttpHeaders;
@@ -23,15 +22,10 @@ import java.beans.BeanInfo;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.util.StreamUtils;
 
 /**
  * OkHttpHandler
