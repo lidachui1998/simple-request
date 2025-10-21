@@ -2,6 +2,7 @@ package com.lidachui.simpleRequest.resolver;
 
 import com.lidachui.simpleRequest.serialize.Serializer;
 
+import com.lidachui.simpleRequest.util.ExceptionUtil;
 import com.lidachui.simpleRequest.util.ObjectUtil;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 
@@ -45,7 +46,7 @@ public class DefaultResponseBuilder extends AbstractResponseBuilder {
             return serializer.deserialize(
                     ObjectUtil.objectToByteArrayUniversal(response.getBody()), responseType);
         } catch (IOException e) {
-            ExceptionUtils.rethrow(e);
+            ExceptionUtil.rethrow(e);
         }
         return null;
     }
