@@ -29,13 +29,18 @@ public class FilterChain {
 
     public void doFilter(
             Request request, Response response, RequestContext context, FilterPhase phase) {
+        doFilter(request, response, context, phase, null);
+    }
+
+    public void doFilter(
+            Request request, Response response, RequestContext context, FilterPhase phase, Exception exception) {
         int position = phasePositions.getOrDefault(phase, 0);
 
         if (position < filters.size()) {
             AbstractRequestFilter currentFilter = filters.get(position);
             try {
                 currentFilter.setRequestContext(context);
-                executeFilter(currentFilter, request, response, phase);
+                executeFilter(currentFilter, request, response, phase, exception);
             } catch (Exception e) {
                 log.error(
                         "Error executing {} filter: {}",
@@ -48,7 +53,7 @@ public class FilterChain {
     }
 
     private void executeFilter(
-            AbstractRequestFilter filter, Request request, Response response, FilterPhase phase) {
+            AbstractRequestFilter filter, Request request, Response response, FilterPhase phase, Exception exception) {
         switch (phase) {
             case PRE_HANDLE:
                 filter.preHandle(request);
@@ -57,7 +62,7 @@ public class FilterChain {
                 filter.afterCompletion(request, response);
                 break;
             case ERROR:
-                filter.error(request, response, null);
+                filter.error(request, response, exception);
                 break;
             default:
                 break;
