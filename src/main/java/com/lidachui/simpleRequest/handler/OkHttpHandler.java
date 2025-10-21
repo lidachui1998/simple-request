@@ -131,8 +131,6 @@ public class OkHttpHandler extends AbstractHttpClientHandler {
                     );
                 }
             }
-        } catch (IOException e) {
-            throw new UncheckedIOException("Network request failed", e);
         } catch (Exception e) {
             ExceptionUtil.rethrow(e);
         }
