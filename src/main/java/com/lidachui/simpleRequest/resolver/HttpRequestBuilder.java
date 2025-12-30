@@ -16,6 +16,8 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -157,7 +159,36 @@ public class HttpRequestBuilder implements RequestBuilder {
             first.ifPresent(
                     paramInfo -> {
                         String newHost = paramInfo.getValue().toString();
-                        host.set(newHost);
+
+                        URI uri = URI.create(newHost);
+
+                        // 1. 解析 query
+                        String hostQuery = uri.getQuery();
+                        if (StringUtils.hasText(hostQuery)) {
+                            for (String param : hostQuery.split("&")) {
+                                String[] kv = param.split("=", 2);
+                                if (kv.length == 2) {
+                                    queryEntities.add(new QueryEntity(kv[0], kv[1]));
+                                }
+                            }
+                        }
+
+                        // 2. 去掉 query，重新构造 host
+                        String pureHost;
+                        try {
+                            pureHost =
+                                    new URI(
+                                            uri.getScheme(),
+                                            uri.getAuthority(),
+                                            uri.getPath(),
+                                            null, // query 置空
+                                            null // fragment 置空
+                                    )
+                                            .toString();
+                        } catch (URISyntaxException e) {
+                            throw new RuntimeException(e);
+                        }
+                        host.set(pureHost);
                     });
         }
         // 构建完整 URL
